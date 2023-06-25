@@ -1,0 +1,36 @@
+{
+  "name": "mining-pool",
+  "version": "0.0.1",
+  "description": "Mining pool portal",
+  "main": "./dist/init.js",
+  "author": "meok",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://bitbucket.org/cryptostack/allnodes-pool.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ./dist/init.js"
+  },
+    "engines": {
+    "node": ">=12.14.1"
+  },
+  "dependencies": {
+    "@types/cors": "^2.8.12",
+    "base-x": "^3.0.2",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "decimal.js": "^10.3.1",
+    "express": "^4.17.1",
+    "pg": "^8.7.1"
+  },
+  "devDependencies": {
+    "@types/body-parser": "^1.19.1",
+    "@types/express": "^4.17.13",
+    "@types/node": "^16.10.1",
+    "@types/pg": "^8.6.1",
+    "typescript": "^5.0.4",
+    "prettier": "^2.8.1"
+  }
+}

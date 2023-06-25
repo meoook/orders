@@ -1,0 +1,25 @@
+{
+  "timers": {
+    "blockRefresh": 10,
+    "jobRebroadcast": 55,
+    "connectionTimeout": 600
+  },
+  "logging": {
+    "level": "debug",
+    "enableColors": true,
+    "writeToFile": true,
+    "folder": "logs",
+    "writeInterval": 5
+  },
+  "db": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "user": "postgres",
+    "password": "xaxaxue",
+    "database": "postgres"
+  },
+  "api": {
+    "hostname": "localhost",
+    "port": 1337
+  }
+}
