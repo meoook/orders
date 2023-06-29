@@ -9,7 +9,14 @@ export default class PgSql {
   // #filename = './src/db/sql.sql'  // To create db schema
   connected: boolean = false
 
-  constructor(private readonly log: Logger, cfg: CfgSql) {
+  private static instance: PgSql
+
+  public static getInstance(log: Logger, cfg: CfgSql): PgSql {
+    if (!PgSql.instance) PgSql.instance = new PgSql(log, cfg)
+    return PgSql.instance
+  }
+
+  private constructor(private readonly log: Logger, cfg: CfgSql) {
     // const settings = 'postgresql://dbuser:secretpassword@database.server.com:3211/mydb'
     const settings: ClientConfig = {
       // max: 20,
@@ -17,7 +24,7 @@ export default class PgSql {
       port: Number(cfg.port),
       user: cfg.user,
       password: cfg.password,
-      database: cfg.database
+      database: cfg.database,
     }
     this.#pool = new Pool(settings)
     this.#init()
@@ -61,10 +68,12 @@ export default class PgSql {
 
   createFromFile = async (filename: string): Promise<void> => {
     this.log.i(logSystem, `Load from file '${filename}'`)
-    let fileString = fs.readFileSync(filename).toString()
-      .replace(/(\r\n|\n|\r)/gm, " ")       // remove newlines
-      .replace(/\s+/g, ' ')                 // excess white space
-    const queries = fileString.split(";")   // split into statements
+    let fileString = fs
+      .readFileSync(filename)
+      .toString()
+      .replace(/(\r\n|\n|\r)/gm, ' ') // remove newlines
+      .replace(/\s+/g, ' ') // excess white space
+    const queries = fileString.split(';') // split into statements
     for (let idx = 0; idx < queries.length; idx++) {
       const query = queries[idx].trim()
       if (query) await this.makeQuery(query)

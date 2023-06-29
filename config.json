@@ -1,8 +1,7 @@
 {
   "timers": {
-    "blockRefresh": 10,
-    "jobRebroadcast": 55,
-    "connectionTimeout": 600
+    "keepAlife": 240,
+    "symbolRemove": 7
   },
   "logging": {
     "level": "debug",

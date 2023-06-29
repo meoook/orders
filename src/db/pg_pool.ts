@@ -1,17 +1,15 @@
 import { CfgSql } from '../datatype/config.js'
-import { RpcBlock } from '../datatype/rpcBlock.js'
 import Logger from '../logger.js'
 import { SqlAccount, SqlWorker } from './data_types.js'
-import PgSql from './pgsql.js'
+import PgSql from './pg_sql.js'
 
 const logSystem = 'sql:stratum'
-
 
 export default class QuerysPool {
   #sql: PgSql
 
   constructor(private readonly log: Logger, cfgSql: CfgSql) {
-    this.#sql = new PgSql(this.log, cfgSql)
+    this.#sql = PgSql.getInstance(this.log, cfgSql)
   }
 
   /** Get mining account by name (Stratum) */
@@ -65,16 +63,5 @@ export default class QuerysPool {
     if (deleted !== null) return true
     this.log.e(logSystem, `Failed to delete worker(${workerID})`)
     return false
-  }
-
-  /** Create mined block (workerID - who have found block hash) */
-  blockCreate = async (workerID: number, block: RpcBlock): Promise<number> => {
-    if (!workerID || !block.hash || !block.revard) return 0
-    let query = `INSERT INTO blocks (worker_id, block_height, block_hash, pow_amount) `
-    query += `VALUES (${workerID}, ${block.height}, '${block.hash}', ${block.revard}) RETURNING id;`
-    const newBlock = await this.#sql.makeQuery(query)
-    if (newBlock && newBlock[0].id) return newBlock[0].id
-    this.log.e(logSystem, `Failed to create block with height '${block.height}'`)
-    return 0
   }
 }

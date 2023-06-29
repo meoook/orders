@@ -21,9 +21,8 @@ export interface CfgApi {
 
 export interface IConfig {
   timers: {
-    blockRefresh: number
-    jobRebroadcast: number
-    connectionTimeout: number
+    keepAlife: number
+    symbolRemove: number
   }
   logging: CfgLogger
   db: CfgSql
