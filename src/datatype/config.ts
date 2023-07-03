@@ -23,6 +23,7 @@ export interface IConfig {
   timers: {
     keepAlife: number
     symbolRemove: number
+    expire: number
   }
   logging: CfgLogger
   db: CfgSql

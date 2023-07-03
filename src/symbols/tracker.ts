@@ -11,28 +11,41 @@ export default class SymbolTracker extends events.EventEmitter {
   #low: number = 0
   #high: number = 0
 
-  constructor(private readonly symbol: string, private readonly log: Logger) {
+  constructor(private readonly log: Logger, private readonly symbol: string) {
     super()
+    this.log.d(logSystem, `Start ${logSystem} for ${symbol} symbol`)
     this.#name = `Symbol ${this.symbol}`
     this.#socket = new WebSocket(`wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@ticker`)
     this.#setupSocket()
   }
 
   set low(price: number) {
-    if (this.#low === 0) this.#low = price
-    else if (price > this.#low) this.#low = price
+    if (this.#low === 0) {
+      this.log.i(logSystem, `${this.#name} set low ${price}`)
+      this.#low = price
+    } else if (price > this.#low) {
+      this.log.i(logSystem, `${this.#name} change low from ${this.#low} to ${price}`)
+      this.#low = price
+    }
   }
 
   set high(price: number) {
-    if (this.#high === 0) this.#high = price
-    else if (price < this.#high) this.#high = price
+    if (this.#high === 0) {
+      this.log.i(logSystem, `${this.#name} set high ${price}`)
+      this.#high = price
+    } else if (price < this.#high) {
+      this.log.i(logSystem, `${this.#name} change high from ${this.#high} to ${price}`)
+      this.#high = price
+    }
   }
 
   get alife(): boolean {
+    this.log.i(logSystem, `${this.#name} price: ${this.#price} with min: ${this.#low} high: ${this.#high}`)
     return !this.#socket.isPaused // && this.#socket.ping()
   }
 
   reset = (): void => {
+    this.log.d(logSystem, `${this.#name} reset high/low prices`)
     this.#high = 0
     this.#low = 0
   }
@@ -52,7 +65,6 @@ export default class SymbolTracker extends events.EventEmitter {
     this.#socket.on('message', (data: any) => {
       const message = JSON.parse(data)
       this.#price = parseFloat(message.c)
-      this.log.i(logSystem, `${this.#name} ${this.symbol} price ${this.#price}`)
       if (this.#low && this.#price < this.#low) this.emit('low', this.#price)
       if (this.#high && this.#price > this.#high) this.emit('high', this.#price)
     })

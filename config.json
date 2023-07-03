@@ -1,7 +1,8 @@
 {
   "timers": {
-    "keepAlife": 240,
-    "symbolRemove": 7
+    "keepAlife": 60,
+    "symbolRemove": 10,
+    "expire": 60
   },
   "logging": {
     "level": "debug",

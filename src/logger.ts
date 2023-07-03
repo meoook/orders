@@ -1,7 +1,13 @@
 import fs from 'node:fs'
 import { CfgLogger } from './datatype/config'
 
-enum LogLevel { DEBUG, INFO, WARNING, ERROR, CRITICAL }
+enum LogLevel {
+  DEBUG,
+  INFO,
+  WARNING,
+  ERROR,
+  CRITICAL,
+}
 type LogLevelString = keyof typeof LogLevel
 
 export default class Logger {
@@ -94,7 +100,7 @@ export default class Logger {
 
   #nowStr = (): string => {
     const d = new Date()
-    const day = this.#lenTwo(d.getDay())
+    const day = this.#lenTwo(d.getDate())
     const month = this.#lenTwo(d.getMonth())
     const year = d.getFullYear()
     const hours = this.#lenTwo(d.getHours())
@@ -103,5 +109,5 @@ export default class Logger {
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`
   }
 
-  #lenTwo = (datePart: number): string => (datePart > 9) ? `${datePart}` : `0${datePart}`
+  #lenTwo = (datePart: number): string => (datePart > 9 ? `${datePart}` : `0${datePart}`)
 }

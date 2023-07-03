@@ -6,7 +6,7 @@ const logSystem = 'pg'
 
 export default class PgSql {
   #pool: Pool
-  // #filename = './src/db/sql.sql'  // To create db schema
+  #filename = './src/db/sql.sql' // To create db schema
   connected: boolean = false
 
   private static instance: PgSql
@@ -17,7 +17,7 @@ export default class PgSql {
   }
 
   private constructor(private readonly log: Logger, cfg: CfgSql) {
-    // const settings = 'postgresql://dbuser:secretpassword@database.server.com:3211/mydb'
+    // const settings = 'postgresql://user:password@host:port/database'
     const settings: ClientConfig = {
       // max: 20,
       host: cfg.host,
@@ -32,7 +32,7 @@ export default class PgSql {
 
   #init = async (): Promise<void> => {
     await this.#checkConnection()
-    // if (this.connected) await this.#createFromFile(this.#filename)
+    if (this.connected) await this.createFromFile(this.#filename)
   }
 
   #checkConnection = async (): Promise<void> => {

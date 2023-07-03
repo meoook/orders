@@ -1,6 +1,6 @@
-import fs from "fs"
+import fs from 'fs'
 import { IConfig } from './src/datatype/config'
-import Logger from "./src/logger"
+import Logger from './src/logger'
 import Pool from './src/pool'
 
 const cfgPath = './config.json'
@@ -13,4 +13,8 @@ if (!fs.existsSync(cfgPath)) {
 const config: IConfig = JSON.parse(fs.readFileSync(cfgPath, { encoding: 'utf8' }))
 const logger: Logger = new Logger(config.logging)
 
-new Pool(config, logger)
+try {
+  new Pool(logger, config)
+} catch (e) {
+  logger.c('initializer', `Server stoped - ${e}`)
+}

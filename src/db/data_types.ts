@@ -8,11 +8,16 @@ export interface SqlAccount {
   pay_min: number
 }
 
-export interface SqlWorker {
+export interface SqlOrder {
   id: number
-  created: number
-  last_online: number
-  acc_name: string
-  worker_name: string
-  difficulty: number
+  bot_id: number
+  symbol: string
+  side: string
+  quantity: number
+  price: number
+  fee: number
+  time: number
+  expire: number
+  filled: boolean
+  order_id: number
 }
