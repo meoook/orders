@@ -1,7 +1,7 @@
-import { IConfig } from '../datatype/config'
-import { SqlOrder } from '../db/data_types'
+import { IConfig } from '../datatypes'
+import { SqlOrderCreateParams } from '../db/datatypes'
 import Logger from '../logger'
-import { OrderSide } from './datatype'
+import { OrderSide } from './datatypes'
 
 const logSystem = 'binance'
 
@@ -32,7 +32,7 @@ export default class BnApi {
       time: 12345678,
     }
   }
-  orderCreate = async (order: SqlOrder): Promise<number | undefined> => {
+  orderCreate = async (order: SqlOrderCreateParams): Promise<number | undefined> => {
     this.log.i(logSystem, `Try to create order ${order}`)
     return 123
   }

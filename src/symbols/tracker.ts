@@ -8,8 +8,8 @@ export default class SymbolTracker extends events.EventEmitter {
   #socket: WebSocket
   #name: string
   #price: number = 0
-  #low: number = 0
-  #high: number = 0
+  #low: number = 0 // buy price
+  #high: number = 0 // sell price
 
   constructor(private readonly log: Logger, private readonly symbol: string) {
     super()

@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { CfgLogger } from './datatype/config'
+import { CfgLogger } from './datatypes'
 
 enum LogLevel {
   DEBUG,

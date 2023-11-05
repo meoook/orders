@@ -1,12 +1,12 @@
 import { ClientConfig, Pool } from 'pg'
 import fs from 'fs'
-import { CfgSql } from '../datatype/config'
+import { CfgSql } from '../datatypes'
 import Logger from '../logger'
 const logSystem = 'pg'
 
 export default class PgSql {
   #pool: Pool
-  #filename = './src/db/sql.sql' // To create db schema
+  // #filename = './src/db/sql.sql' // To create db schema
   connected: boolean = false
 
   private static instance: PgSql
@@ -32,7 +32,7 @@ export default class PgSql {
 
   #init = async (): Promise<void> => {
     await this.#checkConnection()
-    if (this.connected) await this.createFromFile(this.#filename)
+    // if (this.connected) await this.createFromFile(this.#filename)
   }
 
   #checkConnection = async (): Promise<void> => {

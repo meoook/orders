@@ -1,8 +1,8 @@
 {
   "timers": {
-    "keepAlife": 60,
+    "keepAlife": 900,
     "symbolRemove": 10,
-    "expire": 60
+    "expire": 120
   },
   "logging": {
     "level": "debug",
