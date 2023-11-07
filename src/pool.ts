@@ -28,27 +28,16 @@ export default class Pool {
     this.#setupOrdersCheck(this.cfg.timers.expire + 1) // add 1 sec to check after expire
     await this.#ordersMonitorAddItems()
     await this.#ordersCheck()
-    // Go tests
-    // setTimeout(() => {
-    //   this.#monitor.orderAdd(1, 'ETHUSDT', OrderSide.BUY, 1500, 1)
-    //   this.#monitor.orderAdd(1, 'ETHUSDT', OrderSide.BUY, 1925, 2)
-    //   this.#monitor.orderAdd(1, 'ETHUSDT', OrderSide.SELL, 1990, 3)
-    //   this.#monitor.orderAdd(1, 'ETHUSDT', OrderSide.SELL, 1930, 4)
-    //   this.#monitor.orderAdd(1, 'BNBUSDT', OrderSide.BUY, 230, 5)
-    //   this.#monitor.orderAdd(1, 'BNBUSDT', OrderSide.BUY, 245, 6)
-    //   this.#monitor.orderAdd(1, 'BNBUSDT', OrderSide.SELL, 260, 7)
-    //   this.#monitor.orderAdd(1, 'BNBUSDT', OrderSide.SELL, 250, 8)
-    // }, 5000)
   }
 
   #setupMonitor = (): void => {
     this.log.i(logSystem, 'Setup monitor')
     this.#monitor.on('order', async (orderID: number) => {
-      this.log.i(logSystem, `Price triggered for order ${orderID}`)
+      this.log.i(logSystem, `Order id:${orderID} price triggered`)
       const order: SqlOrder | undefined = await this.#sql.orderGet(orderID)
       if (!order) {
         // TODO: check order not expire, not filled and not already in exchange
-        this.log.c(logSystem, `Order ${orderID} triggered but not found in DB`)
+        this.log.c(logSystem, `Order id:${orderID} price triggered but not found in DB`)
       } else {
         const apiOrderID = await this.#bn.orderCreate(order)
         this.log.i(logSystem, `Created binance order ${apiOrderID}`)
@@ -68,7 +57,7 @@ export default class Pool {
     // add sql orders to monitor at start
     const orders: SqlOrder[] = await this.#sql.ordersGet(false)
     let amount: number = 0
-    const now: number = Date.now()
+    const now: number = (Date.now() / 1000) | 0
     for (const order of orders) {
       const expired: number = Math.round(now - order.expire)
       if (expired > 0) {
@@ -80,15 +69,14 @@ export default class Pool {
         amount++
       }
     }
-    this.log.i(logSystem, `Loaded ${amount} of ${orders.length} orders from DB to monitor`)
+    this.log.i(logSystem, `Monitor loaded ${amount} of ${orders.length} orders from DB`)
   }
 
   #ordersCheck = async (): Promise<void> => {
     // Check created in excange orders status
     const orders: SqlOrder[] | undefined = await this.#sql.ordersGet(true)
-    if (!orders || !orders.length) return
-    this.log.d(logSystem, `Go to check status for ${orders.length} created in exchange orders from DB`)
-    const now: number = Date.now()
+    this.log.d(logSystem, `Try to check status for ${orders.length} exchange orders`)
+    const now: number = (Date.now() / 1000) | 0
     for (const order of orders) await this.#orderCheck(order, now)
   }
 
@@ -107,14 +95,14 @@ export default class Pool {
     } else if (apiOrder.status === order.status) {
       this.log.d(logSystem, `Order ${order.order_id} status not changed: ${order.status}`)
     } else if (apiOrder.status === OrderStatus.FILLED || apiOrder.status === OrderStatus.PARTIALLY_FILLED) {
-      this.log.i(logSystem, `Order ${order.id} with exchange id ${order.order_id} successfully ${apiOrder.status}`)
+      this.log.i(logSystem, `Order id:${order.id} with order_id:${order.order_id} successfully ${apiOrder.status}`)
       this.#monitor.ordersCancel(order.bot_id, order.symbol, [order.id])
       await this.#sql.orderUpdate(order.id, { status: apiOrder.status })
     } else if (apiOrder.status === OrderStatus.CANCELED || apiOrder.status === OrderStatus.EXPIRED) {
-      this.log.w(logSystem, `Order ${order.id} with exchange id ${order.order_id} was ${apiOrder.status}`)
-      await this.#bn.orderDelete(order.order_id)
+      this.log.w(logSystem, `Order ${order.id} with order_id:${order.order_id} was ${apiOrder.status}`)
+      await this.#orderDelete(order)
     } else {
-      this.log.d(logSystem, `Order ${order.id} with exchange id ${order.order_id} checked, status ${apiOrder.status}`)
+      this.log.d(logSystem, `Order ${order.id} with order_id:${order.order_id} checked, status ${apiOrder.status}`)
     }
   }
 
@@ -128,7 +116,7 @@ export default class Pool {
         deleted++
       }
     })
-    const amount: number = await this.#sql.ordersDelete(botID)
+    const amount: number = await this.#sql.ordersBotDelete(botID)
     return deleted + amount
   }
 
@@ -156,14 +144,14 @@ export default class Pool {
       await this.#bn.orderDelete(order.order_id)
       // Recheck status
       const apiOrder = await this.#bn.orderGet(order.order_id)
-      if (apiOrder?.status === 'CANCELED') await this.#sql.orderDelete(order.order_id)
+      if (apiOrder?.status === 'CANCELED') await this.#sql.orderDelete(order.id)
       else {
         this.log.w(logSystem, `Try to delete ${apiOrder?.status} order id:${order.id}`)
         // TODO: Set api order status
         await this.#sql.orderUpdate(order.id, { status: OrderStatus.FILLED })
       }
     } else {
-      await this.#sql.orderDelete(order.order_id)
+      await this.#sql.orderDelete(order.id)
     }
     this.#monitor.ordersCancel(order.bot_id, order.symbol, [order.id])
   }

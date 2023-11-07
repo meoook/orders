@@ -19,13 +19,16 @@ const cols: (keyof SqlOrderCreateParams)[] = [
 /** Stratum server data control */
 export default class DataControl {
   #sql: PgSql
-  #table: string = 'monitor_order'
-  #short: string = 'mo'
+  #TABLE: string = 'monitor_order'
+  #SHORT: string = 'mo'
   #values: string
+  #from: string
 
   constructor(private readonly log: Logger, cfgSql: CfgSql) {
     this.log.d(logSystem, `Start db controller ${cfgSql.host}`)
-    this.#values = cols.map((col: string) => `${this.#short}.${col}`).join(', ')
+    const values: string = cols.map((col: string) => `${this.#SHORT}.${col}`).join(', ')
+    this.#values = `${this.#SHORT}.id, ${values}`
+    this.#from = `${this.#TABLE} ${this.#SHORT}`
     this.#sql = PgSql.getInstance(this.log, cfgSql)
   }
 
@@ -42,84 +45,81 @@ export default class DataControl {
   }
 
   ordersGet = async (inExchange: boolean): Promise<SqlOrder[]> => {
-    let query = `SELECT ${this.#short}.id, ${this.#values} `
-    query += `FROM ${this.#table} ${this.#short} `
-    query += `WHERE status <> '${OrderStatus.FILLED}' AND order_id ${inExchange ? '<>' : '='} 0;`
     this.log.d(logSystem, `Try to get ${inExchange ? 'exchange' : 'fake'} orders`)
+    const condition: string = `${this.#SHORT}.order_id ${inExchange ? '<>' : '='} 0`
+    const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}' AND ${condition}`
+    const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
     const orders = await this.#sql.makeQuery(query)
     if (orders && orders.length > 0) return orders.map((o) => this.#orderSerialize(o))
     return []
   }
 
   ordersBotGet = async (botID: number): Promise<SqlOrder[]> => {
-    let query = `SELECT ${this.#short}.id, ${this.#values} `
-    query += `FROM ${this.#table} ${this.#short} `
-    query += `WHERE status <> '${OrderStatus.FILLED}' AND bot_id = ${botID};`
     this.log.d(logSystem, `Try to get bot id:${botID} orders`)
+    const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}' AND ${this.#SHORT}.bot_id = ${botID}`
+    const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
     const orders = await this.#sql.makeQuery(query)
     if (orders && orders.length > 0) return orders.map((o) => this.#orderSerialize(o))
     return []
   }
 
-  ordersDelete = async (botID: number): Promise<number> => {
+  ordersBotDelete = async (botID: number): Promise<number> => {
     if (!botID) throw new Error('bot id not set to delete orders')
-    let query = `DELETE FROM ${this.#table} WHERE bot_id = ${botID} and status <> ${OrderStatus.FILLED};`
-    this.log.d(logSystem, `Try to delete bot id:${botID} orders`)
+    this.log.d(logSystem, `Try to delete bot id:${botID} active orders`)
+    const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}' AND ${this.#SHORT}.bot_id = ${botID}`
+    const query = `DELETE FROM ${this.#from} WHERE ${where} RETURNING ${this.#values};`
     const deleted = await this.#sql.makeQuery(query)
-    console.log('DELETED', deleted) // TODO: RM
-    if (deleted !== null) return 3 // TODO: get number
-    this.log.e(logSystem, `Failed to delete bot id:${botID} orders`)
+    if (deleted !== null) return deleted.length
+    this.log.e(logSystem, `Failed to delete bot id:${botID} active orders`)
     throw new Error(`failed to delete bot id:${botID} orders`)
   }
 
   orderGet = async (orderID: number, botID?: number): Promise<SqlOrder> => {
     if (!orderID) throw new Error('order id not set to get it')
-    let query = `SELECT ${this.#short}.id, ${this.#values} `
-    query += `FROM ${this.#table} ${this.#short} WHERE `
-    query += Boolean(botID) ? `${this.#short}.botID = '${botID}' AND ` : ''
-    query += `${this.#short}.id = '${orderID}';`
-    this.log.d(logSystem, `Try to get order: ${query}`)
+    this.log.d(logSystem, `Try to get order id:${orderID}`)
+    let where: string = Boolean(botID) ? `${this.#SHORT}.botID = ${botID} AND ` : ''
+    where += `${this.#SHORT}.id = ${orderID};`
+    const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
     const found = await this.#sql.makeQuery(query)
     if (found && found.length === 1) return this.#orderSerialize(found[0])
-    this.log.e(logSystem, `Failed to get order with id '${orderID}'`)
+    this.log.e(logSystem, `Failed to get order id:${orderID}`)
     throw new Error(`order id:${orderID} not found`)
   }
 
   orderCreate = async (order: SqlOrderCreateParams): Promise<SqlOrder> => {
+    this.log.d(logSystem, `Bot id:${order.bot_id} try to create ${order.side} order price:${order.price}`)
     const values = cols.map((col: keyof SqlOrderCreateParams) => `${order[col]}`).join(', ')
-    const query = `INSERT INTO ${this.#table} (${cols.join(', ')}) VALUES (${values}) RETURNING id;`
-    this.log.d(logSystem, `Try to create order: ${query} `)
+    const query = `INSERT INTO ${this.#from} (${cols.join(', ')}) VALUES (${values}) RETURNING ${this.#values};`
     const orderCreated = await this.#sql.makeQuery(query)
     if (orderCreated && orderCreated[0].id) return orderCreated[0]
-    this.log.e(logSystem, `failed to create order '${order}'`)
-    throw new Error(`failed to create order '${order}'`)
+    this.log.e(logSystem, `Failed to create order '${order}'`)
+    throw new Error('failed to create order')
   }
 
-  orderUpdate = async (orderID: number, changes: SqlOrderUpdateParams): Promise<void> => {
+  orderUpdate = async (orderID: number, changes: SqlOrderUpdateParams): Promise<SqlOrder> => {
     let updates: string = ''
     Object.entries(changes).forEach(([key, value]) => {
       if (!value) this.log.e(logSystem, `Order ${orderID} try to set ${key} = ${value} (ignored)`)
       else if (updates) updates += `, ${key} = ${value}`
       else updates = `${key} = ${value}`
     })
-    if (updates) {
-      let query = `UPDATE ${this.#table} SET ${updates} WHERE ${this.#short}.id = '${orderID}';`
-      this.log.d(logSystem, `Try to update order: ${query}`)
-      const result = await this.#sql.makeQuery(query)
-      this.log.d(logSystem, `Order ${orderID} updated - ${result}`)
-    } else {
-      this.log.e(logSystem, `Try to update order id: ${orderID} but no updates - ${changes}`)
-    }
+    if (!updates) throw new Error('no changes to update order')
+    this.log.d(logSystem, `Order id:${orderID} try to update`)
+    const where: string = `${this.#SHORT}.id = '${orderID}'`
+    const query = `UPDATE ${this.#from} SET ${updates} WHERE ${where} RETURNING ${this.#values};`
+    const result = await this.#sql.makeQuery(query)
+    if (result && result[0].id) return result[0]
+    this.log.e(logSystem, `Order id:${orderID} failed to update`)
+    throw new Error('failed to update order')
   }
 
   orderDelete = async (orderID: number): Promise<boolean> => {
-    this.log.d(logSystem, `Try to delete order id: ${orderID}`)
+    this.log.d(logSystem, `Order id:${orderID} try to delete`)
     if (!orderID) return false
-    let query = `DELETE FROM ${this.#table} WHERE id = ${orderID};`
-    const deleted = await this.#sql.makeQuery(query)
-    console.log('DELETED2', deleted) // TODO: RM
-    if (deleted !== null) return true
-    this.log.e(logSystem, `Failed to delete order with id: (${orderID})`)
+    let query = `DELETE FROM ${this.#from} WHERE ${this.#SHORT}.id = ${orderID} RETURNING ${this.#SHORT}.id;`
+    const result = await this.#sql.makeQuery(query)
+    if (result && result[0].id) return true
+    this.log.e(logSystem, `Order id:${orderID} failed to delete`)
     return false
   }
 

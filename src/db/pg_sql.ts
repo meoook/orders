@@ -44,20 +44,8 @@ export default class PgSql {
   }
 
   makeQuery = async (text: string) => {
-    /**
-        {
-          command: 'CREATE',
-          rowCount: null,
-          oid: null,
-          rows: [],
-          fields: [],
-          RowCtor: null,
-          rowAsArray: false
-        }
-     */
     try {
       const result = await this.#pool.query(text)
-      // if (result.rowCount < 1) return null
       this.log.d(logSystem, `Query ok: ${text}`)
       return result.rows
     } catch (err) {

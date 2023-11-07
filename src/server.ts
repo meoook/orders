@@ -72,6 +72,7 @@ export default class ApiServer {
         this.log.w(logSystem, `Wrong parameters to create order - ${req.body}`)
         res.status(400).json({ error: 'wrong parameters to create order' })
       } else {
+        const now: number = (Date.now() / 1000) | 0
         const newOrder: SqlOrderCreateParams = {
           bot_id,
           symbol,
@@ -80,8 +81,8 @@ export default class ApiServer {
           side,
           quantity,
           price,
-          time: Date.now(),
-          expire: Math.round(this.#timeframeToSec(timeframe) + Date.now()),
+          time: now,
+          expire: Math.round(this.#timeframeToSec(timeframe) + now),
         }
         this.log.d(logSystem, `Try to new create order ${newOrder}`)
         const details: string = `qty: ${newOrder.quantity} price: ${newOrder.price}`

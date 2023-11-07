@@ -36,34 +36,35 @@ export default class OrdersMonitor extends events.EventEmitter {
   }
 
   orderAdd(botID: number, symbol: string, side: OrderSide, price: number, orderID: number): void {
-    this.log.i(logSystem, `Bot id: ${botID} add ${symbol} ${OrderSide[side]} order with price ${price}`)
+    this.log.i(logSystem, `Bot id:${botID} adding ${symbol} ${OrderSide[side]} order with price ${price}`)
     if (symbol in this.#orders) this.#orders[symbol].push({ botID, price, side, orderID })
     else this.#orders[symbol] = [{ botID, price, side, orderID }]
     this.#symbolAdd(symbol)
-    if (side === OrderSide.BUY) this.#symbols[symbol].low = price
-    else this.#symbols[symbol].high = price
+    if (side === OrderSide.BUY) this.#symbols[symbol].buy = price
+    else this.#symbols[symbol].sell = price
   }
 
   ordersCancel(botID: number, symbol: string, orders?: number[]): void {
-    /// Cancel tracking selected orders or for all orders if not set
-    this.log.i(logSystem, `Bot id: ${botID} cancel ${symbol} orders: ${orders ? orders : 'all'}`)
+    /// Cancel tracking symbol selected orders or all orders if orders parameter not set
+    this.log.d(logSystem, `Symbol ${symbol} bot id:${botID} cancel orders: ${orders ? orders : 'all'}`)
     if (symbol in this.#orders) {
       let _orders: IOrder[] = []
       if (orders) {
-        _orders = this.#orders[symbol].filter((o: IOrder) => o.botID !== botID && !orders.includes(o.orderID))
+        _orders = this.#orders[symbol].filter((o: IOrder) => o.botID !== botID || !orders.includes(o.orderID))
       } else {
         _orders = this.#orders[symbol].filter((o: IOrder) => o.botID !== botID)
       }
       const changed: boolean = _orders.length !== this.#orders[symbol].length
       this.#orders[symbol] = _orders
+
       if (changed) {
         this.#symbolReset(symbol) // reset if have orders to delete
         this.#symbolCheckTimer(symbol)
       } else {
-        this.log.w(logSystem, `Bot id: ${botID} ${symbol} orders not found to cancel`)
+        this.log.w(logSystem, `Symbol ${symbol} bot id:${botID} orders not found to cancel`)
       }
     } else {
-      this.log.e(logSystem, `Symbol ${symbol} not found in tracking orders to cancel`)
+      this.log.e(logSystem, `Symbol ${symbol} not found tracking orders to cancel`)
     }
   }
 
@@ -79,26 +80,26 @@ export default class OrdersMonitor extends events.EventEmitter {
   }
 
   #symbolReset(symbol: string): void {
-    /// Recheck low and high for symbol
-    this.log.d(logSystem, `Symbol ${symbol} reset buy/sell price`)
+    /// Reset buy and sell prices for symbol
+    this.log.d(logSystem, `Symbol ${symbol} reset buy/sell prices`)
     this.#symbols[symbol].reset()
     this.#orders[symbol].forEach((order: IOrder) => {
-      if (order.side === OrderSide.BUY) this.#symbols[symbol].low = order.price
-      else this.#symbols[symbol].high = order.price
+      if (order.side === OrderSide.BUY) this.#symbols[symbol].buy = order.price
+      else this.#symbols[symbol].sell = order.price
     })
   }
 
   #symbolAdd(symbol: string): void {
     if (symbol in this.#symbols) {
-      this.log.d(logSystem, `Already tracking symbol ${symbol}`)
+      this.log.d(logSystem, `Symbol ${symbol} already tracking`)
     } else {
-      this.log.i(logSystem, `Add symbol to track ${symbol}`)
+      this.log.i(logSystem, `Symbol ${symbol} added to track`)
       const tracker = new TrackingSymbol(this.log, symbol)
       tracker.on('low', (price: number) => {
-        this.#symbolCheckPrice(symbol, price, OrderSide.BUY)
+        this.#symbolPriceTriger(symbol, price, OrderSide.BUY)
       })
       tracker.on('high', (price: number) => {
-        this.#symbolCheckPrice(symbol, price, OrderSide.SELL)
+        this.#symbolPriceTriger(symbol, price, OrderSide.SELL)
       })
       // TODO: tacker.on(error)
       this.#symbols[symbol] = tracker
@@ -118,40 +119,43 @@ export default class OrdersMonitor extends events.EventEmitter {
 
   #symbolCheck(symbol: string): boolean {
     /// Stop tracking symbol without bots
-    this.log.d(logSystem, `${symbol} check for orders`)
+    this.log.d(logSystem, `Symbol ${symbol} check for orders`)
     if (symbol in this.#orders && this.#orders[symbol].length) {
       if (symbol in this.#symbols) return true
-      this.log.w(logSystem, `${symbol} have orders but not tracking`)
+      this.log.w(logSystem, `Symbol ${symbol} have orders but not tracking`)
       this.#symbolAdd(symbol)
       this.#symbolReset(symbol)
       return true
     }
-    this.log.i(logSystem, `${symbol} no orders - symbol remove`)
+    this.log.i(logSystem, `Symbol ${symbol} no orders - symbol remove`)
     this.#symbolRemove(symbol)
     return false
   }
 
   #symbolCheckTimer(symbol: string): void {
-    this.log.d(logSystem, `${symbol} check for orders after ${this.cfg.timers.symbolRemove} seconds`)
+    this.log.d(logSystem, `Symbol ${symbol} check for orders after ${this.cfg.timers.symbolRemove} seconds`)
     setTimeout(() => {
+      console.log(`Symbol ${symbol} check on timer`) // TODO: RM
       this.#symbolCheck(symbol)
     }, this.cfg.timers.symbolRemove * 1000)
   }
 
-  #symbolCheckPrice(symbol: string, price: number, side: OrderSide): void {
-    this.log.d(logSystem, `${symbol} check ${OrderSide[side]} for price: ${price}`)
+  #symbolPriceTriger(symbol: string, price: number, side: OrderSide): void {
     if (!(symbol in this.#symbols)) {
-      this.log.e(logSystem, `Emit 'check' on non-tracking symbol ${symbol}`)
+      this.log.c(logSystem, `Symbol ${symbol} trigger ${OrderSide[side]} for price ${price} but non-tracking`)
       return
+    } else {
+      this.log.d(logSystem, `Symbol ${symbol} trigger ${OrderSide[side]} for price ${price}`)
     }
+    console.log(`Symbol ${symbol} check on trigger`) // TODO: RM
     if (!this.#symbolCheck(symbol)) return
     let amount: number = 0
     for (const order of this.#orders[symbol]) {
       if (side === OrderSide.BUY ? order.price >= price : order.price <= price) {
         amount++
-        const info: string = `${symbol} ${order.side} order id:${order.orderID} triggered`
+        const info: string = `Symbol ${symbol} ${OrderSide[order.side]} order id:${order.orderID} triggered`
         if (side === OrderSide.BUY ? order.price >= price : order.price <= price) {
-          this.log.i(logSystem, `${info} on side: ${OrderSide[side]}`)
+          this.log.i(logSystem, `${info}`)
         } else {
           this.log.c(logSystem, `${info} but side: ${OrderSide[side]}`)
         }

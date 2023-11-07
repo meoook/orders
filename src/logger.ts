@@ -7,6 +7,7 @@ enum LogLevel {
   WARNING,
   ERROR,
   CRITICAL,
+  SUCCESS,
 }
 type LogLevelString = keyof typeof LogLevel
 
@@ -35,6 +36,7 @@ export default class Logger {
   w = (module: string, text: string): void => this.#log(LogLevel.WARNING, module, text)
   e = (module: string, text: string): void => this.#log(LogLevel.ERROR, module, text)
   c = (module: string, text: string): void => this.#log(LogLevel.CRITICAL, module, text)
+  s = (module: string, text: string): void => this.#log(LogLevel.SUCCESS, module, text)
 
   #log = (level: LogLevel, module: string, text: string): void => {
     if (level < this.#logLevel) return
@@ -76,6 +78,8 @@ export default class Logger {
         return `\x1b[1;31m${text}\x1b[0m`
       case LogLevel.CRITICAL:
         return `\x1b[31m${text}\x1b[0m`
+      case LogLevel.SUCCESS:
+        return `\x1b[1;32m${text}\x1b[0m`
       default: // white
         return `\x1b[37m${text}\x1b[0m`
     }
@@ -93,6 +97,8 @@ export default class Logger {
         return '[E]'
       case 4:
         return '[C]'
+      case 5:
+        return '[S]'
       default:
         return '[-]'
     }

@@ -8,8 +8,8 @@ export default class SymbolTracker extends events.EventEmitter {
   #socket: WebSocket
   #name: string
   #price: number = 0
-  #low: number = 0 // buy price
-  #high: number = 0 // sell price
+  #buy: number = 0
+  #sell: number = 0
 
   constructor(private readonly log: Logger, private readonly symbol: string) {
     super()
@@ -19,35 +19,35 @@ export default class SymbolTracker extends events.EventEmitter {
     this.#setupSocket()
   }
 
-  set low(price: number) {
-    if (this.#low === 0) {
-      this.log.i(logSystem, `${this.#name} set low ${price}`)
-      this.#low = price
-    } else if (price > this.#low) {
-      this.log.i(logSystem, `${this.#name} change low from ${this.#low} to ${price}`)
-      this.#low = price
+  set buy(price: number) {
+    if (this.#buy === 0) {
+      this.log.i(logSystem, `${this.#name} set buy ${price}`)
+      this.#buy = price
+    } else if (price > this.#buy) {
+      this.log.i(logSystem, `${this.#name} change buy from ${this.#buy} to ${price}`)
+      this.#buy = price
     }
   }
 
-  set high(price: number) {
-    if (this.#high === 0) {
-      this.log.i(logSystem, `${this.#name} set high ${price}`)
-      this.#high = price
-    } else if (price < this.#high) {
-      this.log.i(logSystem, `${this.#name} change high from ${this.#high} to ${price}`)
-      this.#high = price
+  set sell(price: number) {
+    if (this.#sell === 0) {
+      this.log.i(logSystem, `${this.#name} set sell ${price}`)
+      this.#sell = price
+    } else if (price < this.#sell) {
+      this.log.i(logSystem, `${this.#name} change sell from ${this.#sell} to ${price}`)
+      this.#sell = price
     }
   }
 
   get alife(): boolean {
-    this.log.i(logSystem, `${this.#name} price: ${this.#price} with min: ${this.#low} high: ${this.#high}`)
+    this.log.i(logSystem, `${this.#name} price: ${this.#price} with buy: ${this.#buy} sell: ${this.#sell}`)
     return !this.#socket.isPaused // && this.#socket.ping()
   }
 
   reset = (): void => {
-    this.log.d(logSystem, `${this.#name} reset high/low prices`)
-    this.#high = 0
-    this.#low = 0
+    this.log.d(logSystem, `${this.#name} reset buy/sell prices`)
+    this.#sell = 0
+    this.#buy = 0
   }
 
   stop = (): void => {
@@ -65,8 +65,8 @@ export default class SymbolTracker extends events.EventEmitter {
     this.#socket.on('message', (data: any) => {
       const message = JSON.parse(data)
       this.#price = parseFloat(message.c)
-      if (this.#low && this.#price < this.#low) this.emit('low', this.#price)
-      if (this.#high && this.#price > this.#high) this.emit('high', this.#price)
+      if (this.#buy && this.#price < this.#buy) this.emit('low', this.#price)
+      if (this.#sell && this.#price > this.#sell) this.emit('high', this.#price)
     })
     // Connection closed event
     this.#socket.on('close', (withErr: boolean) => {
