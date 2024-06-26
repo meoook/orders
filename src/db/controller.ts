@@ -1,9 +1,8 @@
-import { CfgSql } from '../datatypes'
+import { CfgSql, OrderStatus, SqlAccount, SqlOrder, SqlOrderCreateParams, SqlOrderUpdateParams } from '../datatypes'
 import Logger from '../logger'
 import PgSql from './pg_sql.js'
-import { OrderStatus, SqlAccount, SqlOrder, SqlOrderCreateParams, SqlOrderUpdateParams } from './datatypes.js'
 
-const logSystem: string = 'data'
+const logSystem: string = 'controller'
 const cols: (keyof SqlOrderCreateParams)[] = [
   'bot_id',
   'symbol',
@@ -16,8 +15,8 @@ const cols: (keyof SqlOrderCreateParams)[] = [
   'expire',
 ]
 
-/** Stratum server data control */
 export default class DataControl {
+  // TODO: Validate database tables and fields
   #sql: PgSql
   #TABLE: string = 'monitor_order'
   #SHORT: string = 'mo'
@@ -50,7 +49,7 @@ export default class DataControl {
     const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}' AND ${condition}`
     const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
     const orders = await this.#sql.makeQuery(query)
-    if (orders && orders.length > 0) return orders.map((o) => this.#orderSerialize(o))
+    if (orders && orders.length > 0) return orders.map((order) => this.#orderSerialize(order))
     return []
   }
 
@@ -59,25 +58,14 @@ export default class DataControl {
     const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}' AND ${this.#SHORT}.bot_id = ${botID}`
     const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
     const orders = await this.#sql.makeQuery(query)
-    if (orders && orders.length > 0) return orders.map((o) => this.#orderSerialize(o))
+    if (orders && orders.length > 0) return orders.map((order) => this.#orderSerialize(order))
     return []
-  }
-
-  ordersBotDelete = async (botID: number): Promise<number> => {
-    if (!botID) throw new Error('bot id not set to delete orders')
-    this.log.d(logSystem, `Try to delete bot id:${botID} active orders`)
-    const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}' AND ${this.#SHORT}.bot_id = ${botID}`
-    const query = `DELETE FROM ${this.#from} WHERE ${where} RETURNING ${this.#values};`
-    const deleted = await this.#sql.makeQuery(query)
-    if (deleted !== null) return deleted.length
-    this.log.e(logSystem, `Failed to delete bot id:${botID} active orders`)
-    throw new Error(`failed to delete bot id:${botID} orders`)
   }
 
   orderGet = async (orderID: number, botID?: number): Promise<SqlOrder> => {
     if (!orderID) throw new Error('order id not set to get it')
     this.log.d(logSystem, `Try to get order id:${orderID}`)
-    let where: string = Boolean(botID) ? `${this.#SHORT}.botID = ${botID} AND ` : ''
+    let where: string = Boolean(botID) ? `${this.#SHORT}.bot_id = ${botID} AND ` : ''
     where += `${this.#SHORT}.id = ${orderID};`
     const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
     const found = await this.#sql.makeQuery(query)

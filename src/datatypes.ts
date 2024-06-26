@@ -1,3 +1,4 @@
+/// CONFIG
 export interface CfgSql {
   host: string
   port: string | number
@@ -28,4 +29,72 @@ export interface IConfig {
   logging: CfgLogger
   db: CfgSql
   api: CfgApi
+}
+
+/// ORDER
+export enum OrderSide {
+  BUY = 'BUY',
+  SELL = 'SELL',
+}
+
+export enum OrderStatus {
+  NEW = 'NEW',
+  FILLED = 'FILLED',
+  PARTIALLY_FILLED = 'PARTIALLY_FILLED',
+  CANCELED = 'CANCELED',
+  REJECTED = 'REJECTED',
+  EXPIRED = 'EXPIRED',
+}
+
+export interface IOrder {
+  orderID: number
+  symbol: string
+  origQty: number
+  price: number
+  side: OrderSide
+  status: string // 'CANCELED'
+  time: number
+}
+
+// Model types
+export interface SqlAccount {
+  id: number
+  created: number
+  user_id: number
+  acc_name: string
+  pay_address: string
+  pay_min: number
+}
+
+export interface SqlOrder {
+  id: number
+  bot_id: number
+  symbol: string
+  order_id: number
+  status: OrderStatus
+  side: string
+  quantity: number
+  price: number
+  time: number
+  expire: number
+  api_key?: string
+  api_secret?: string
+}
+
+export interface SqlOrderUpdateParams {
+  order_id?: number
+  status?: OrderStatus
+  time?: number
+}
+
+export interface SqlOrderCreateParams {
+  bot_id: number
+  symbol: string
+  order_id: number
+  status: OrderStatus
+  side: string
+  quantity: number
+  price: number
+  time: number
+  expire: number
 }

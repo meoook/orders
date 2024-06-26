@@ -1,19 +1,7 @@
-import { IConfig } from '../datatypes'
-import { SqlOrderCreateParams } from '../db/datatypes'
+import { IConfig, IOrder, OrderSide, SqlOrderCreateParams } from '../datatypes'
 import Logger from '../logger'
-import { OrderSide } from './datatypes'
 
 const logSystem = 'binance'
-
-export interface IOrder {
-  orderID: number
-  symbol: string
-  origQty: number
-  price: number
-  side: OrderSide
-  status: string // 'CANCELED'
-  time: number
-}
 
 export default class BnApi {
   constructor(private readonly log: Logger, private readonly cfg: IConfig) {
@@ -21,7 +9,8 @@ export default class BnApi {
   }
 
   orderGet = async (orderID: number): Promise<IOrder | undefined> => {
-    this.log.i(logSystem, `Try to get order id ${orderID}`)
+    this.log.i(logSystem, `Try to get order id: ${orderID}`)
+
     return {
       orderID: 1,
       symbol: 'BNBUSDT',
@@ -32,8 +21,24 @@ export default class BnApi {
       time: 12345678,
     }
   }
-  orderCreate = async (order: SqlOrderCreateParams): Promise<number | undefined> => {
+
+  orderCreate = async (order: SqlOrderCreateParams): Promise<number> => {
     this.log.i(logSystem, `Try to create order ${order}`)
+    // const params = {
+    //   symbol: 'symbol',
+    //   side: 'side',
+    //   type: 'order_type',
+    //   isIsolated: 'isolated',
+    //   timeInForce: 'time_in_force',
+    //   quantity: 'quantity',
+    //   quoteOrderQty: 'quote_qty',
+    //   price: 'price',
+    //   stopPrice: 'stop_price',
+    //   newClientOrderId: 'client_id',
+    //   icebergQty: 'iceberg_qty',
+    //   newOrderRespType: 'ACK', // ACK, RESULT, FULL
+    //   sideEffectType: 'side_effect',
+    // }
     return 123
   }
 

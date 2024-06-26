@@ -1,8 +1,7 @@
 import events from 'events'
-import TrackingSymbol from './tracker'
-import { IConfig } from '../datatypes'
 import Logger from '../logger'
-import { OrderSide } from '../bn_api/datatypes'
+import TrackingSymbol from './tracker'
+import { IConfig, OrderSide } from '../datatypes'
 
 const logSystem = 'monitor'
 
@@ -10,7 +9,7 @@ interface ISymbols {
   [index: string]: TrackingSymbol
 }
 
-interface IOrder {
+interface ImOrder {
   botID: number
   orderID: number
   price: number
@@ -18,7 +17,7 @@ interface IOrder {
 }
 
 interface IBots {
-  [symbol: string]: IOrder[]
+  [symbol: string]: ImOrder[]
 }
 
 export default class OrdersMonitor extends events.EventEmitter {
@@ -48,21 +47,20 @@ export default class OrdersMonitor extends events.EventEmitter {
     /// Cancel tracking symbol selected orders or all orders if orders parameter not set
     this.log.d(logSystem, `Symbol ${symbol} bot id:${botID} cancel orders: ${orders ? orders : 'all'}`)
     if (symbol in this.#orders) {
-      let _orders: IOrder[] = []
-      if (orders) {
-        _orders = this.#orders[symbol].filter((o: IOrder) => o.botID !== botID || !orders.includes(o.orderID))
-      } else {
-        _orders = this.#orders[symbol].filter((o: IOrder) => o.botID !== botID)
+      let _orders: ImOrder[] = []
+      if (orders) _orders = this.#orders[symbol].filter((o: ImOrder) => !orders.includes(o.orderID))
+      else _orders = this.#orders[symbol].filter((o: ImOrder) => o.botID !== botID)
+
+      if (_orders.length === 0) {
+        this.log.i(logSystem, `Symbol ${symbol} no more orders`)
+        this.#symbolRemove(symbol)
+        return
       }
       const changed: boolean = _orders.length !== this.#orders[symbol].length
       this.#orders[symbol] = _orders
 
-      if (changed) {
-        this.#symbolReset(symbol) // reset if have orders to delete
-        this.#symbolCheckTimer(symbol)
-      } else {
-        this.log.w(logSystem, `Symbol ${symbol} bot id:${botID} orders not found to cancel`)
-      }
+      if (changed) this.#symbolReset(symbol)
+      else this.log.w(logSystem, `Symbol ${symbol} bot id:${botID} orders not found to cancel`)
     } else {
       this.log.e(logSystem, `Symbol ${symbol} not found tracking orders to cancel`)
     }
@@ -74,7 +72,7 @@ export default class OrdersMonitor extends events.EventEmitter {
       this.log.i(logSystem, 'Symbols keep alife check')
       for (let symbol in this.#symbols) {
         if (this.#symbols[symbol].alife) this.log.i(logSystem, `Symbol ${symbol} is alife`)
-        else this.log.e(logSystem, `Symbol ${symbol} is not alife`)
+        else this.log.e(logSystem, `Symbol ${symbol} is not alife`) //  TODO: #symbolRestart (delete and reset)
       }
     }, this.cfg.timers.keepAlife * 1000)
   }
@@ -83,7 +81,7 @@ export default class OrdersMonitor extends events.EventEmitter {
     /// Reset buy and sell prices for symbol
     this.log.d(logSystem, `Symbol ${symbol} reset buy/sell prices`)
     this.#symbols[symbol].reset()
-    this.#orders[symbol].forEach((order: IOrder) => {
+    this.#orders[symbol].forEach((order: ImOrder) => {
       if (order.side === OrderSide.BUY) this.#symbols[symbol].buy = order.price
       else this.#symbols[symbol].sell = order.price
     })
@@ -117,29 +115,6 @@ export default class OrdersMonitor extends events.EventEmitter {
     }
   }
 
-  #symbolCheck(symbol: string): boolean {
-    /// Stop tracking symbol without bots
-    this.log.d(logSystem, `Symbol ${symbol} check for orders`)
-    if (symbol in this.#orders && this.#orders[symbol].length) {
-      if (symbol in this.#symbols) return true
-      this.log.w(logSystem, `Symbol ${symbol} have orders but not tracking`)
-      this.#symbolAdd(symbol)
-      this.#symbolReset(symbol)
-      return true
-    }
-    this.log.i(logSystem, `Symbol ${symbol} no orders - symbol remove`)
-    this.#symbolRemove(symbol)
-    return false
-  }
-
-  #symbolCheckTimer(symbol: string): void {
-    this.log.d(logSystem, `Symbol ${symbol} check for orders after ${this.cfg.timers.symbolRemove} seconds`)
-    setTimeout(() => {
-      console.log(`Symbol ${symbol} check on timer`) // TODO: RM
-      this.#symbolCheck(symbol)
-    }, this.cfg.timers.symbolRemove * 1000)
-  }
-
   #symbolPriceTriger(symbol: string, price: number, side: OrderSide): void {
     if (!(symbol in this.#symbols)) {
       this.log.c(logSystem, `Symbol ${symbol} trigger ${OrderSide[side]} for price ${price} but non-tracking`)
@@ -147,8 +122,6 @@ export default class OrdersMonitor extends events.EventEmitter {
     } else {
       this.log.d(logSystem, `Symbol ${symbol} trigger ${OrderSide[side]} for price ${price}`)
     }
-    console.log(`Symbol ${symbol} check on trigger`) // TODO: RM
-    if (!this.#symbolCheck(symbol)) return
     let amount: number = 0
     for (const order of this.#orders[symbol]) {
       if (side === OrderSide.BUY ? order.price >= price : order.price <= price) {

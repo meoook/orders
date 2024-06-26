@@ -1,10 +1,8 @@
 import Logger from './logger'
 import OrdersMonitor from './symbols/monitor.js'
-import { IConfig } from './datatypes'
 import DataControl from './db/controller'
-import { OrderStatus, SqlOrder, SqlOrderCreateParams } from './db/datatypes'
-import BnApi, { IOrder } from './bn_api/api'
-import { OrderSide } from './bn_api/datatypes'
+import BnApi from './bn_api/api'
+import { IConfig, IOrder, OrderSide, OrderStatus, SqlOrder, SqlOrderCreateParams } from './datatypes'
 
 const logSystem = 'pool'
 
@@ -25,9 +23,9 @@ export default class Pool {
 
   #start = async (): Promise<void> => {
     this.#setupMonitor()
-    this.#setupOrdersCheck(this.cfg.timers.expire + 1) // add 1 sec to check after expire
+    this.#setupExchangeOrdersCheck(this.cfg.timers.expire)
     await this.#ordersMonitorAddItems()
-    await this.#ordersCheck()
+    await this.#exchangeOrdersCheck()
   }
 
   #setupMonitor = (): void => {
@@ -46,15 +44,16 @@ export default class Pool {
     })
   }
 
-  #setupOrdersCheck = (timeout: number) => {
-    this.log.i(logSystem, `Setup orders check every ${timeout} seconds`)
+  #setupExchangeOrdersCheck = (timeout: number) => {
+    /// Check created in exchange orders every `timeout` seconds
+    this.log.i(logSystem, `Setup exchange orders check every ${timeout} seconds`)
     setInterval(async () => {
-      await this.#ordersCheck()
+      await this.#exchangeOrdersCheck()
     }, timeout * 1000)
   }
 
   #ordersMonitorAddItems = async (): Promise<void> => {
-    // add sql orders to monitor at start
+    // Add sql orders to monitor at start
     const orders: SqlOrder[] = await this.#sql.ordersGet(false)
     let amount: number = 0
     const now: number = (Date.now() / 1000) | 0
@@ -72,52 +71,66 @@ export default class Pool {
     this.log.i(logSystem, `Monitor loaded ${amount} of ${orders.length} orders from DB`)
   }
 
-  #ordersCheck = async (): Promise<void> => {
+  #exchangeOrdersCheck = async (): Promise<void> => {
     // Check created in excange orders status
     const orders: SqlOrder[] | undefined = await this.#sql.ordersGet(true)
     this.log.d(logSystem, `Try to check status for ${orders.length} exchange orders`)
     const now: number = (Date.now() / 1000) | 0
-    for (const order of orders) await this.#orderCheck(order, now)
+    for (const order of orders) await this.#exchangeOrderCheck(order, now)
   }
 
-  #orderCheck = async (order: SqlOrder, now: number): Promise<void> => {
+  #exchangeOrderCheck = async (order: SqlOrder, now: number): Promise<void> => {
     // Check created in excange order status - delete
     const expired: number = Math.round(now - order.expire)
     if (expired > 0) {
       this.log.w(logSystem, `Order ${order.id} for bot ${order.bot_id} expired ${expired} seconds ago`)
-      await this.#orderDelete(order)
+      await this.#exchangeOrderDelete(order)
       return
     }
     if (order.order_id === 0) return
     const apiOrder: IOrder | undefined = await this.#bn.orderGet(order.order_id)
     if (!apiOrder) {
       this.log.c(logSystem, `Failed to get order ${order.order_id} by API`)
+      /// TODO: RM sql.order
     } else if (apiOrder.status === order.status) {
       this.log.d(logSystem, `Order ${order.order_id} status not changed: ${order.status}`)
     } else if (apiOrder.status === OrderStatus.FILLED || apiOrder.status === OrderStatus.PARTIALLY_FILLED) {
-      this.log.i(logSystem, `Order id:${order.id} with order_id:${order.order_id} successfully ${apiOrder.status}`)
-      this.#monitor.ordersCancel(order.bot_id, order.symbol, [order.id])
+      this.log.s(logSystem, `Order id:${order.id} with order_id:${order.order_id} successfully ${apiOrder.status}`)
       await this.#sql.orderUpdate(order.id, { status: apiOrder.status })
     } else if (apiOrder.status === OrderStatus.CANCELED || apiOrder.status === OrderStatus.EXPIRED) {
-      this.log.w(logSystem, `Order ${order.id} with order_id:${order.order_id} was ${apiOrder.status}`)
-      await this.#orderDelete(order)
+      this.log.w(logSystem, `Order id:${order.id} with order_id:${order.order_id} was ${apiOrder.status}`)
+      await this.#sql.orderDelete(order.id)
     } else {
       this.log.d(logSystem, `Order ${order.id} with order_id:${order.order_id} checked, status ${apiOrder.status}`)
     }
   }
 
-  ordersCancel = async (botID: number): Promise<number> => {
-    const orders = await this.#sql.ordersBotGet(botID)
-    let deleted: number = 0
-    if (!orders) return deleted
-    orders.forEach(async (order) => {
-      if (order.order_id > 0) {
-        await this.#orderDelete(order)
-        deleted++
+  #exchangeOrderDelete = async (order: SqlOrder): Promise<void> => {
+    // Delete order from exchange, db and monitor
+    if (order.order_id > 0) {
+      await this.#bn.orderDelete(order.order_id)
+      // Recheck status
+      const apiOrder = await this.#bn.orderGet(order.order_id)
+      if (apiOrder?.status === 'CANCELED') await this.#sql.orderDelete(order.id)
+      else {
+        this.log.w(logSystem, `Try to delete ${apiOrder?.status} order id:${order.id}`)
+        // TODO: Set api order status
+        await this.#sql.orderUpdate(order.id, { status: OrderStatus.FILLED })
       }
+    } else {
+      await this.#sql.orderDelete(order.id)
+    }
+    this.#monitor.ordersCancel(order.bot_id, order.symbol, [order.id])
+  }
+
+  ordersCancel = async (botID: number): Promise<number> => {
+    /// Cancel bor orders
+    const orders = await this.#sql.ordersBotGet(botID)
+    orders.forEach(async (order) => {
+      if (order.order_id > 0) await this.#exchangeOrderDelete(order)
+      else await this.#sql.orderDelete(order.id)
     })
-    const amount: number = await this.#sql.ordersBotDelete(botID)
-    return deleted + amount
+    return orders.length
   }
 
   ordersGet = async (botID: number): Promise<SqlOrder[]> => {
@@ -136,23 +149,5 @@ export default class Pool {
     const side: OrderSide = order.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL
     this.#monitor.orderAdd(order.bot_id, order.symbol, side, order.price, sqlOrder.id)
     return sqlOrder
-  }
-
-  #orderDelete = async (order: SqlOrder): Promise<void> => {
-    // Delete order from exchange, db and monitor
-    if (order.order_id > 0) {
-      await this.#bn.orderDelete(order.order_id)
-      // Recheck status
-      const apiOrder = await this.#bn.orderGet(order.order_id)
-      if (apiOrder?.status === 'CANCELED') await this.#sql.orderDelete(order.id)
-      else {
-        this.log.w(logSystem, `Try to delete ${apiOrder?.status} order id:${order.id}`)
-        // TODO: Set api order status
-        await this.#sql.orderUpdate(order.id, { status: OrderStatus.FILLED })
-      }
-    } else {
-      await this.#sql.orderDelete(order.id)
-    }
-    this.#monitor.ordersCancel(order.bot_id, order.symbol, [order.id])
   }
 }
