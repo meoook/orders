@@ -47,12 +47,12 @@ export enum OrderStatus {
 }
 
 export interface BnOrder {
-  orderID: number
   symbol: string
-  origQty: number
-  price: number
-  side: OrderSide
   status: OrderStatus
+  side: OrderSide
+  order_id: number
+  quantity: number
+  price: number
   time: number
 }
 
@@ -63,7 +63,7 @@ export interface SqlOrderUpdate {
   time?: number
 }
 
-export interface SqlOrderCreate {
+export interface SqlOrderCreate extends BnOrder {
   bot_id: number
   symbol: string
   order_id: number

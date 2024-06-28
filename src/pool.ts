@@ -15,7 +15,7 @@ export default class Pool {
     this.log.d(logSystem, `Start ${logSystem}`)
     this.#sql = new DataControl(log, this.cfg.db)
     this.#monitor = new OrdersMonitor(log, this.cfg)
-    this.#bn = new BnApi(log, this.cfg)
+    this.#bn = new BnApi(log)
     setTimeout(() => {
       this.#start()
     }, 1000) // wait a sec to db connect
@@ -85,7 +85,7 @@ export default class Pool {
       return
     }
     if (order.order_id === 0) return
-    const apiOrder: BnOrder | undefined = await this.#bn.orderGet(order.order_id)
+    const apiOrder: BnOrder | undefined = await this.#bn.orderGet(order)
     if (!apiOrder) {
       this.log.c(logSystem, `Failed to get order ${order.order_id} by API`)
       await this.#orderDelete(order)
@@ -107,9 +107,7 @@ export default class Pool {
     // Delete order from exchange, db and monitor
     if (order.order_id > 0) {
       this.log.d(logSystem, `Order id:${order.id} try to delete (exchange)`)
-      await this.#bn.orderDelete(order.order_id)
-      // Recheck status
-      const apiOrder = await this.#bn.orderGet(order.order_id) // TODO: no need - get data from deleted
+      const apiOrder = await this.#bn.orderDelete(order)
       if (apiOrder && [OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED].includes(apiOrder.status)) {
         await this.#sql.orderUpdate(order.id, { status: OrderStatus.FILLED })
         return
