@@ -8,6 +8,8 @@ enum LogLevel {
   ERROR,
   CRITICAL,
   SUCCESS,
+  DATETIME,
+  MODULE,
 }
 type LogLevelString = keyof typeof LogLevel
 
@@ -24,7 +26,7 @@ export default class Logger {
 
     this.#toFile = cfg.writeToFile || false
     if (this.#toFile && cfg.folder) {
-      const writeInterval = cfg.writeInterval || 5
+      const writeInterval: number = cfg.writeInterval || 5
       this.#checkFolder(cfg.folder)
       this.#fileName = `${cfg.folder}/log.log`
       setInterval(this.#fileStream, writeInterval * 1000) // Make `filestream`
@@ -40,11 +42,22 @@ export default class Logger {
 
   #log = (level: LogLevel, module: string, text: string): void => {
     if (level < this.#logLevel) return
-    const nowString = this.#nowStr()
-    let colorPart = `${nowString} ${this.#levelTag(level)} [${module}]`
-    if (this.#toFile) this.#streamData += `${colorPart} ${text}\n`
-    if (this.#enableColors) colorPart = this.#colorTextByLevel(level, colorPart)
-    console.log(`${colorPart} ${text}`)
+    const nowString: string = this.#nowStr()
+    const levelTag: string = this.#levelTag(level)
+    if (this.#toFile) this.#streamData += `${nowString} ${levelTag} [${module}] ${text}\n`
+    const stdout: string = this.#logColorize(level, nowString, levelTag, module, text)
+    console.log(stdout)
+  }
+
+  #logColorize = (level: LogLevel, now: string, tag: string, module: string, text: string): string => {
+    if (this.#enableColors) {
+      const _now: string = this.#colorize(LogLevel.DATETIME, now)
+      const _tag: string = this.#colorize(level, tag)
+      const _module: string = this.#colorize(LogLevel.MODULE, `[${module}]`)
+      const _text: string = this.#colorize(level, text)
+      return `${_now} ${_tag} ${_module} ${_text}`
+    }
+    return `${now} ${tag} [${module}] ${text}`
   }
 
   // Create log directory if not exists
@@ -66,12 +79,12 @@ export default class Logger {
     this.#streamData = ''
   }
 
-  #colorTextByLevel = (level: LogLevel, text: string): string => {
+  #colorize = (level: LogLevel, text: string): string => {
     switch (level) {
       case LogLevel.DEBUG:
         return `\x1b[32m${text}\x1b[0m`
       case LogLevel.INFO:
-        return `\x1b[36m${text}\x1b[0m`
+        return `\x1b[37m${text}\x1b[0m`
       case LogLevel.WARNING:
         return `\x1b[33m${text}\x1b[0m`
       case LogLevel.ERROR: // light red
@@ -80,8 +93,12 @@ export default class Logger {
         return `\x1b[31m${text}\x1b[0m`
       case LogLevel.SUCCESS:
         return `\x1b[1;32m${text}\x1b[0m`
+      case LogLevel.MODULE:
+        return `\x1b[1;34m${text}\x1b[0m`
+      case LogLevel.DATETIME:
+        return `\x1b[34m${text}\x1b[0m`
       default: // white
-        return `\x1b[37m${text}\x1b[0m`
+        return `\x1b[36m${text}\x1b[0m`
     }
   }
 
@@ -106,13 +123,13 @@ export default class Logger {
 
   #nowStr = (): string => {
     const d = new Date()
-    const day = this.#lenTwo(d.getDate())
-    const month = this.#lenTwo(d.getMonth())
-    const year = d.getFullYear()
-    const hours = this.#lenTwo(d.getHours())
-    const minutes = this.#lenTwo(d.getMinutes())
-    const seconds = this.#lenTwo(d.getSeconds())
-    return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`
+    const day: string = this.#lenTwo(d.getDate())
+    const month: string = this.#lenTwo(d.getMonth())
+    const year: number = d.getFullYear()
+    const hours: string = this.#lenTwo(d.getHours())
+    const minutes: string = this.#lenTwo(d.getMinutes())
+    const seconds: string = this.#lenTwo(d.getSeconds())
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
   }
 
   #lenTwo = (datePart: number): string => (datePart > 9 ? `${datePart}` : `0${datePart}`)

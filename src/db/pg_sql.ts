@@ -43,14 +43,14 @@ export default class PgSql {
     else this.log.c(logSystem, 'Check connection fail')
   }
 
-  makeQuery = async (text: string) => {
+  makeQuery = async (text: string): Promise<any[]> => {
+    this.log.d(logSystem, `Try query: ${text}`)
     try {
       const result = await this.#pool.query(text)
-      this.log.d(logSystem, `Query ok: ${text}`)
       return result.rows
     } catch (err) {
       this.log.e(logSystem, `Query failed: ${text} - ${err}`)
-      return null
+      return []
     }
   }
 

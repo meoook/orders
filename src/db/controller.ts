@@ -1,9 +1,9 @@
-import { CfgSql, OrderStatus, SqlAccount, SqlOrder, SqlOrderCreateParams, SqlOrderUpdateParams } from '../datatypes'
 import Logger from '../logger'
 import PgSql from './pg_sql.js'
+import { CfgSql, OrderSide, OrderStatus, SqlAccount, SqlOrder, SqlOrderCreate, SqlOrderUpdate } from '../datatypes'
 
 const logSystem: string = 'controller'
-const cols: (keyof SqlOrderCreateParams)[] = [
+const cols: (keyof SqlOrderCreate)[] = [
   'bot_id',
   'symbol',
   'order_id',
@@ -22,6 +22,8 @@ export default class DataControl {
   #SHORT: string = 'mo'
   #values: string
   #from: string
+  #accValues = 'ta.api_key, ta.api_secret'
+  #accJoin = `LEFT JOIN subscribers_tradeaccount ta ON ${this.#SHORT}.account_id = ta.id`
 
   constructor(private readonly log: Logger, cfgSql: CfgSql) {
     this.log.d(logSystem, `Start db controller ${cfgSql.host}`)
@@ -34,7 +36,7 @@ export default class DataControl {
   accGet = async (botID: number): Promise<SqlAccount | undefined> => {
     this.log.d(logSystem, `Try to get account for bot id: ${botID}`)
     if (!botID) return
-    let query = 'SELECT ta.api_key, ta.api_secret FROM subscribers_tradeaccount ta '
+    let query: string = 'SELECT ta.api_key, ta.api_secret FROM subscribers_tradeaccount ta '
     query += 'LEFT JOIN subscribers_bot sb ON sb.account_id = ta.id '
     query += `WHERE sb.id = ${botID};`
     const found = await this.#sql.makeQuery(query)
@@ -43,48 +45,45 @@ export default class DataControl {
     return
   }
 
-  ordersGet = async (inExchange: boolean): Promise<SqlOrder[]> => {
-    this.log.d(logSystem, `Try to get ${inExchange ? 'exchange' : 'fake'} orders`)
-    const condition: string = `${this.#SHORT}.order_id ${inExchange ? '<>' : '='} 0`
-    const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}' AND ${condition}`
-    const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
+  ordersGet = async (onlyFake: boolean): Promise<SqlOrder[]> => {
+    this.log.d(logSystem, `Try to get ${onlyFake ? 'exchange' : 'fake'} orders`)
+    const condition: string = onlyFake ? ` AND ${this.#SHORT}.order_id = 0` : ''
+    const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}'${condition}`
+    const query: string = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
     const orders = await this.#sql.makeQuery(query)
-    if (orders && orders.length > 0) return orders.map((order) => this.#orderSerialize(order))
-    return []
+    return orders.map((order) => this.#orderSerialize(order))
   }
 
   ordersBotGet = async (botID: number): Promise<SqlOrder[]> => {
     this.log.d(logSystem, `Try to get bot id:${botID} orders`)
-    const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}' AND ${this.#SHORT}.bot_id = ${botID}`
-    const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
+    const where: string = `${this.#SHORT}.bot_id = ${botID}`
+    const query: string = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
     const orders = await this.#sql.makeQuery(query)
-    if (orders && orders.length > 0) return orders.map((order) => this.#orderSerialize(order))
-    return []
+    return orders.map((order) => this.#orderSerialize(order))
   }
 
-  orderGet = async (orderID: number, botID?: number): Promise<SqlOrder> => {
+  orderGet = async (orderID: number): Promise<SqlOrder | undefined> => {
     if (!orderID) throw new Error('order id not set to get it')
     this.log.d(logSystem, `Try to get order id:${orderID}`)
-    let where: string = Boolean(botID) ? `${this.#SHORT}.bot_id = ${botID} AND ` : ''
-    where += `${this.#SHORT}.id = ${orderID};`
-    const query = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
+    let query: string = `SELECT ${this.#values} ${this.#accValues} FROM ${this.#from} `
+    query += `${this.#accJoin} WHERE ${this.#SHORT}.id = ${orderID};`
     const found = await this.#sql.makeQuery(query)
     if (found && found.length === 1) return this.#orderSerialize(found[0])
-    this.log.e(logSystem, `Failed to get order id:${orderID}`)
-    throw new Error(`order id:${orderID} not found`)
+    this.log.e(logSystem, `Order id:${orderID} not found`)
+    return
   }
 
-  orderCreate = async (order: SqlOrderCreateParams): Promise<SqlOrder> => {
+  orderCreate = async (order: SqlOrderCreate): Promise<SqlOrder> => {
     this.log.d(logSystem, `Bot id:${order.bot_id} try to create ${order.side} order price:${order.price}`)
-    const values = cols.map((col: keyof SqlOrderCreateParams) => `${order[col]}`).join(', ')
+    const values = cols.map((col: keyof SqlOrderCreate) => `${order[col]}`).join(', ')
     const query = `INSERT INTO ${this.#from} (${cols.join(', ')}) VALUES (${values}) RETURNING ${this.#values};`
     const orderCreated = await this.#sql.makeQuery(query)
-    if (orderCreated && orderCreated[0].id) return orderCreated[0]
+    if (orderCreated && orderCreated[0].id) return this.#orderSerialize(orderCreated[0])
     this.log.e(logSystem, `Failed to create order '${order}'`)
     throw new Error('failed to create order')
   }
 
-  orderUpdate = async (orderID: number, changes: SqlOrderUpdateParams): Promise<SqlOrder> => {
+  orderUpdate = async (orderID: number, changes: SqlOrderUpdate): Promise<SqlOrder> => {
     let updates: string = ''
     Object.entries(changes).forEach(([key, value]) => {
       if (!value) this.log.e(logSystem, `Order ${orderID} try to set ${key} = ${value} (ignored)`)
@@ -96,7 +95,7 @@ export default class DataControl {
     const where: string = `${this.#SHORT}.id = '${orderID}'`
     const query = `UPDATE ${this.#from} SET ${updates} WHERE ${where} RETURNING ${this.#values};`
     const result = await this.#sql.makeQuery(query)
-    if (result && result[0].id) return result[0]
+    if (result && result[0].id) return this.#orderSerialize(result[0])
     this.log.e(logSystem, `Order id:${orderID} failed to update`)
     throw new Error('failed to update order')
   }
@@ -117,12 +116,14 @@ export default class DataControl {
       bot_id: data.bot_id,
       symbol: data.symbol,
       order_id: data.order_id,
-      status: data.status,
-      side: data.side,
+      status: OrderStatus[data.status as keyof typeof OrderStatus],
+      side: OrderSide[data.side as keyof typeof OrderSide],
       quantity: data.quantity,
       price: data.price,
       time: data.time,
       expire: data.expire,
+      api_key: data.api_key ? data.api_key : undefined,
+      api_secret: data.api_secret ? data.api_secret : undefined,
     }
   }
 }

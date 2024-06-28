@@ -46,55 +46,48 @@ export enum OrderStatus {
   EXPIRED = 'EXPIRED',
 }
 
-export interface IOrder {
+export interface BnOrder {
   orderID: number
   symbol: string
   origQty: number
   price: number
   side: OrderSide
-  status: string // 'CANCELED'
+  status: OrderStatus
   time: number
 }
 
 // Model types
-export interface SqlAccount {
-  id: number
-  created: number
-  user_id: number
-  acc_name: string
-  pay_address: string
-  pay_min: number
-}
-
-export interface SqlOrder {
-  id: number
-  bot_id: number
-  symbol: string
-  order_id: number
-  status: OrderStatus
-  side: string
-  quantity: number
-  price: number
-  time: number
-  expire: number
-  api_key?: string
-  api_secret?: string
-}
-
-export interface SqlOrderUpdateParams {
+export interface SqlOrderUpdate {
   order_id?: number
   status?: OrderStatus
   time?: number
 }
 
-export interface SqlOrderCreateParams {
+export interface SqlOrderCreate {
   bot_id: number
   symbol: string
   order_id: number
   status: OrderStatus
-  side: string
+  side: OrderSide
   quantity: number
   price: number
   time: number
   expire: number
+}
+
+export interface SqlOrder extends SqlOrderCreate {
+  id: number
+  api_key?: string
+  api_secret?: string
+}
+
+export interface SqlAccount {
+  // id: number
+  // created: number
+  // user_id: number
+  // acc_name: string
+  // pay_address: string
+  // pay_min: number
+  api_key: string
+  api_secret: string
 }

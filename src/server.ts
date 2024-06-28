@@ -1,8 +1,7 @@
 import express, { Request, Response } from 'express'
 import Logger from './logger'
-import { IConfig } from './datatypes'
 import Pool from './pool'
-import { OrderStatus, SqlOrderCreateParams } from './db/datatypes'
+import { IConfig, OrderStatus, SqlOrderCreate } from './datatypes'
 
 const logSystem = 'server'
 
@@ -31,35 +30,26 @@ export default class ApiServer {
         res.status(400).json({ error: 'Bot id not set to get open orders' })
       } else {
         this.log.d(logSystem, `Try to get open orders for bot with id ${bot_id}`)
-        try {
-          const orders = await this.#pool.ordersGet(Number(bot_id))
-          this.log.i(logSystem, `Bot ${bot_id} get ${orders.length} open orders`)
-          res.status(200).json(orders)
-        } catch (err) {
-          this.log.e(logSystem, `Bot ${bot_id} failed to get open orders - ${err}`)
-          res.status(400).json({ error: 'failed to get open orders' })
-        }
+        const orders = await this.#pool.ordersGet(Number(bot_id))
+        this.log.i(logSystem, `Bot ${bot_id} get ${orders.length} open orders`)
+        res.status(200).json(orders)
       }
     })
 
     this.#app.get('/api/orders/:id', async (req: Request, res: Response) => {
       // Get order by ID
       const orderID = req.params.id
-      const { bot_id } = req.query
-      if (!bot_id) {
-        this.log.w(logSystem, `Bot id not set to get open orders`)
-        res.status(400).json({ error: 'Bot id not set to get open orders' })
-      } else if (!orderID || typeof orderID !== 'number') {
+      if (!orderID || typeof orderID !== 'number') {
         this.log.w(logSystem, `Order id ${orderID} not a number`)
         res.status(400).json({ error: 'order id invalid parameter' })
       } else {
         this.log.d(logSystem, `Try to get order with id ${orderID}`)
-        try {
-          const order = await this.#pool.orderGet(orderID, Number(bot_id))
+        const order = await this.#pool.orderGet(orderID)
+        if (order) {
           this.log.i(logSystem, `Get order with id ${orderID}`)
           res.status(200).json(order)
-        } catch (err) {
-          this.log.e(logSystem, `Failed to get order with id:${orderID} - ${err}`)
+        } else {
+          this.log.e(logSystem, `Failed to get order with id:${orderID}`)
           res.status(404).json({ error: 'order not found' })
         }
       }
@@ -73,7 +63,7 @@ export default class ApiServer {
         res.status(400).json({ error: 'wrong parameters to create order' })
       } else {
         const now: number = (Date.now() / 1000) | 0
-        const newOrder: SqlOrderCreateParams = {
+        const newOrder: SqlOrderCreate = {
           bot_id,
           symbol,
           order_id: 0,

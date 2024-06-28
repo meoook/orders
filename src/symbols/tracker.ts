@@ -1,10 +1,10 @@
-import events from 'events'
+import { EventEmitter } from 'events'
 import Logger from '../logger'
 import WebSocket from 'ws'
 
 const logSystem = 'tracker'
 
-export default class SymbolTracker extends events.EventEmitter {
+export default class SymbolTracker extends EventEmitter {
   #socket: WebSocket
   #name: string
   #price: number = 0
@@ -13,7 +13,7 @@ export default class SymbolTracker extends events.EventEmitter {
 
   constructor(private readonly log: Logger, private readonly symbol: string) {
     super()
-    this.log.d(logSystem, `Start ${logSystem} for ${symbol} symbol`)
+    this.log.i(logSystem, `Start ${logSystem} for ${symbol} symbol`)
     this.#name = `Symbol ${this.symbol}`
     this.#socket = new WebSocket(`wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@ticker`)
     this.#setupSocket()
@@ -52,7 +52,7 @@ export default class SymbolTracker extends events.EventEmitter {
 
   stop = (): void => {
     this.log.i(logSystem, `${this.#name} close connection`)
-    this.#socket.close()
+    this.#socket.close(999)
   }
 
   // Socket data handler
@@ -65,13 +65,23 @@ export default class SymbolTracker extends events.EventEmitter {
     this.#socket.on('message', (data: any) => {
       const message = JSON.parse(data)
       this.#price = parseFloat(message.c)
-      if (this.#buy && this.#price < this.#buy) this.emit('low', this.#price)
-      if (this.#sell && this.#price > this.#sell) this.emit('high', this.#price)
+      if (this.#buy && this.#price < this.#buy) {
+        this.#buy = 0
+        this.emit('low', this.#price)
+      }
+      if (this.#sell && this.#price > this.#sell) {
+        this.#sell = 0
+        this.emit('high', this.#price)
+      }
     })
     // Connection closed event
-    this.#socket.on('close', (withErr: boolean) => {
-      this.log.w(logSystem, `${this.#name} close connection${withErr ? ' with error' : ''}`)
-      this.emit('close')
+    // this.#socket.on('close', (withErr: boolean) => {
+    //   this.log.w(logSystem, `${this.#name} close connection${withErr ? ' with error' : ''}`)
+    //   this.emit('close')
+    // })
+    this.#socket.on('close', ({ code }: { code: number }) => {
+      this.log.w(logSystem, `${this.#name} close connection (code:${code})`)
+      this.emit('close', code)
     })
     // Error event
     this.#socket.on('error', (error: any) => {
