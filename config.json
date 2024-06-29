@@ -1,4 +1,5 @@
 {
+  "minOrder": 5.1,
   "timers": {
     "keepAlife": 900,
     "symbolRemove": 10,

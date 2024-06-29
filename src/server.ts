@@ -17,7 +17,7 @@ export default class ApiServer {
 
     this.#apiSetEndppooints()
     this.#app.listen(this.cfg.api.port, () => {
-      this.log.i(logSystem, `Run API Server on port ${this.cfg.api.port}`)
+      this.log.i(logSystem, `Run API Server on ${this.cfg.api.hostname} port ${this.cfg.api.port}`)
     })
   }
 

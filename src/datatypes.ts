@@ -21,6 +21,7 @@ export interface CfgApi {
 }
 
 export interface IConfig {
+  minOrder: number
   timers: {
     keepAlife: number
     symbolRemove: number
@@ -79,6 +80,9 @@ export interface SqlOrder extends SqlOrderCreate {
   id: number
   api_key?: string
   api_secret?: string
+  qty_step?: number
+  base?: number
+  quote?: number
 }
 
 export interface SqlAccount {

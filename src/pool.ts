@@ -15,7 +15,7 @@ export default class Pool {
     this.log.d(logSystem, `Start ${logSystem}`)
     this.#sql = new DataControl(log, this.cfg.db)
     this.#monitor = new OrdersMonitor(log, this.cfg)
-    this.#bn = new BnApi(log)
+    this.#bn = new BnApi(log, this.cfg)
     setTimeout(() => {
       this.#start()
     }, 1000) // wait a sec to db connect

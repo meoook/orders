@@ -16,14 +16,13 @@ const cols: (keyof SqlOrderCreate)[] = [
 ]
 
 export default class DataControl {
-  // TODO: Validate database tables and fields
   #sql: PgSql
   #TABLE: string = 'monitor_order'
   #SHORT: string = 'mo'
   #values: string
   #from: string
-  #accValues = 'ta.api_key, ta.api_secret'
-  #accJoin = `LEFT JOIN subscribers_tradeaccount ta ON ${this.#SHORT}.account_id = ta.id`
+  #join: string
+  #other = 'ta.api_key, ta.api_secret, cp.qty_step, cc.usdt_price as base, ccc.usdt_price as quote'
 
   constructor(private readonly log: Logger, cfgSql: CfgSql) {
     this.log.d(logSystem, `Start db controller ${cfgSql.host}`)
@@ -31,6 +30,11 @@ export default class DataControl {
     this.#values = `${this.#SHORT}.id, ${values}`
     this.#from = `${this.#TABLE} ${this.#SHORT}`
     this.#sql = PgSql.getInstance(this.log, cfgSql)
+    this.#join = `LEFT JOIN subscribers_bot sb on ${this.#SHORT}.bot_id = sb.id `
+    this.#join += `LEFT JOIN subscribers_tradeaccount ta on sb.account_id = ta.id `
+    this.#join += `LEFT JOIN core_pair cp on sb.pair_id = cp.id `
+    this.#join += `LEFT JOIN core_coin cc on cp.coin_base_id = cc.id `
+    this.#join += `LEFT JOIN core_coin ccc on cp.coin_quote_id = ccc.id`
   }
 
   accGet = async (botID: number): Promise<SqlAccount | undefined> => {
@@ -65,8 +69,8 @@ export default class DataControl {
   orderGet = async (orderID: number): Promise<SqlOrder | undefined> => {
     if (!orderID) throw new Error('order id not set to get it')
     this.log.d(logSystem, `Try to get order id:${orderID}`)
-    let query: string = `SELECT ${this.#values} ${this.#accValues} FROM ${this.#from} `
-    query += `${this.#accJoin} WHERE ${this.#SHORT}.id = ${orderID};`
+    let query: string = `SELECT ${this.#values} ${this.#other} FROM ${this.#from} `
+    query += `${this.#join} WHERE ${this.#SHORT}.id = ${orderID};`
     const found = await this.#sql.makeQuery(query)
     if (found && found.length === 1) return this.#orderSerialize(found[0])
     this.log.e(logSystem, `Order id:${orderID} not found`)
@@ -124,6 +128,9 @@ export default class DataControl {
       expire: data.expire,
       api_key: data.api_key ? data.api_key : undefined,
       api_secret: data.api_secret ? data.api_secret : undefined,
+      qty_step: data.qty_step ? data.qty_step : undefined,
+      base: data.base ? data.base : undefined,
+      quote: data.quote ? data.quote : undefined,
     }
   }
 }
