@@ -6,7 +6,9 @@
 - author: [meok][author]
 - build: axios, express, pg, ws
 
-> Using binance API last update: `2024-06-06` > [Binance rate limits](https://binance-docs.github.io/apidocs/spot/en/#change-log) check update for `2023-08-25`
+> Using binance API last update: `2024-06-06`
+>
+> [Binance rate limits](https://binance-docs.github.io/apidocs/spot/en/#change-log) check update for `2023-08-25`
 
 ## What for
 
