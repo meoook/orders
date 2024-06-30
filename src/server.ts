@@ -55,7 +55,7 @@ export default class ApiServer {
       }
     })
 
-    this.#app.post('/api/order', async (req: Request, res: Response) => {
+    this.#app.post('/api/orders', async (req: Request, res: Response) => {
       // Create order
       const { bot_id, symbol, side, quantity, price, timeframe } = req.body
       if (!bot_id || !symbol || !side || !quantity || !price || !timeframe) {
@@ -81,7 +81,7 @@ export default class ApiServer {
           this.log.i(logSystem, `New order created (id:${order.id}) with ${details}`)
           res.status(200).json(order)
         } catch (err) {
-          this.log.e(logSystem, `Failed to create ${newOrder.side} order for bot ${newOrder.bot_id} with ${details}`)
+          this.log.e(logSystem, `Failed to create ${newOrder.side} order for bot id:${newOrder.bot_id} with ${details}`)
           res.status(400).json({ error: 'order failed to create' })
         }
       }
@@ -89,8 +89,8 @@ export default class ApiServer {
 
     this.#app.delete('/api/orders', async (req: Request, res: Response) => {
       // Cancel all open orders
-      const { bot_id } = req.body
-
+      // const { bot_id } = req.body
+      const { bot_id } = req.query
       if (!bot_id) {
         this.log.w(logSystem, `Bot id not set to cancel open orders`)
         res.status(400).json({ error: 'Bot id not set to cancel open orders' })

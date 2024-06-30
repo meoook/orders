@@ -22,6 +22,7 @@ export interface CfgApi {
 
 export interface IConfig {
   minOrder: number
+  wsCloseCode: number
   timers: {
     keepAlife: number
     expire: number
@@ -82,15 +83,4 @@ export interface SqlOrder extends SqlOrderCreate {
   qty_step?: number
   base?: number
   quote?: number
-}
-
-export interface SqlAccount {
-  // id: number
-  // created: number
-  // user_id: number
-  // acc_name: string
-  // pay_address: string
-  // pay_min: number
-  api_key: string
-  api_secret: string
 }

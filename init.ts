@@ -29,6 +29,6 @@ const logger: Logger = new Logger(config.logging)
 
 try {
   new ApiServer(logger, config)
-} catch (e) {
-  logger.c('initializer', `Server stoped - ${e}`)
+} catch (err) {
+  logger.c('initializer', `Server stoped - ${err}`)
 }

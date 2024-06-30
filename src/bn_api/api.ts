@@ -21,11 +21,15 @@ export default class BnApi {
       isIsolated: true,
       orderId: order.order_id,
     }
-    const response = await this.#api.requestApiMargin('get', 'margin/order', order.api_key, order.api_secret, params)
-    return this.#serializeOrder(response)
+    try {
+      const response = await this.#api.requestApiMargin('get', 'margin/order', order.api_key, order.api_secret, params)
+      return this.#serializeOrder(response)
+    } catch (err) {
+      this.log.e(logSystem, `Failed to get order id:${order.order_id} - ${err}`)
+    }
   }
 
-  orderDelete = async (order: SqlOrder): Promise<BnOrder> => {
+  orderDelete = async (order: SqlOrder): Promise<BnOrder | undefined> => {
     if (!order.api_key || !order.api_secret) throw new Error(`Fail to create order id: ${order.id} - no credentials`)
 
     this.log.i(logSystem, `Try to cancel order with binance id: ${order.order_id}`)
@@ -34,8 +38,18 @@ export default class BnApi {
       isIsolated: true,
       orderId: order.order_id,
     }
-    const response = await this.#api.requestApiMargin('delete', 'margin/order', order.api_key, order.api_secret, params)
-    return this.#serializeOrder(response)
+    try {
+      const response = await this.#api.requestApiMargin(
+        'delete',
+        'margin/order',
+        order.api_key,
+        order.api_secret,
+        params
+      )
+      return this.#serializeOrder(response)
+    } catch (err) {
+      this.log.e(logSystem, `Failed to delete order id:${order.order_id} - ${err}`)
+    }
   }
 
   orderCreate = async (order: SqlOrder): Promise<number> => {

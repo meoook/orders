@@ -1,5 +1,6 @@
 {
   "minOrder": 5.1,
+  "wsCloseCode": 4444,
   "timers": {
     "keepAlife": 900,
     "expire": 30

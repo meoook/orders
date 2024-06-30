@@ -34,14 +34,14 @@ export default class OrdersMonitor extends EventEmitter {
 
   ordersCancel(botID: number, symbol: string, orders?: number[]): void {
     /// Cancel tracking symbol selected orders or all bot orders if orders parameter not set
-    this.log.d(logSystem, `Symbol ${symbol} bot id:${botID} cancel orders: ${orders ? orders : 'all'}`)
+    this.log.d(logSystem, `Symbol ${symbol} bot id:${botID} cancel orders: [${orders ? orders : 'all'}]`)
     if (symbol in this.#orders) {
       let _orders: SqlOrder[] = []
-      if (orders) _orders = this.#orders[symbol].filter((o: SqlOrder) => !orders.includes(o.order_id))
+      if (orders) _orders = this.#orders[symbol].filter((o: SqlOrder) => !orders.includes(o.id))
       else _orders = this.#orders[symbol].filter((o: SqlOrder) => o.bot_id !== botID)
 
       if (_orders.length === 0) {
-        this.log.i(logSystem, `Symbol ${symbol} no more orders`)
+        this.log.d(logSystem, `Symbol ${symbol} no more orders`)
         this.#symbolRemove(symbol)
         return
       }
@@ -84,7 +84,7 @@ export default class OrdersMonitor extends EventEmitter {
 
   #symbolSetup(symbol: string): void {
     this.log.i(logSystem, `Symbol ${symbol} added to track`)
-    const tracker = new TrackingSymbol(this.log, symbol)
+    const tracker = new TrackingSymbol(this.log, symbol, this.cfg.wsCloseCode)
     tracker.on('low', (price: number) => {
       this.#symbolPriceTriger(symbol, price, OrderSide.BUY)
     })
@@ -92,10 +92,10 @@ export default class OrdersMonitor extends EventEmitter {
       this.#symbolPriceTriger(symbol, price, OrderSide.SELL)
     })
     tracker.on('close', (code: number) => {
-      if (code === 999) {
+      if (code === this.cfg.wsCloseCode) {
         this.log.i(logSystem, `Symbol ${symbol} connection closed on stop`)
       } else {
-        this.log.w(logSystem, `Symbol ${symbol} connection closed - restart`)
+        this.log.w(logSystem, `Symbol ${symbol} connection closed (code:${code}) - restart`)
         this.#symbolSetup(symbol)
       }
     })

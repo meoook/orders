@@ -11,7 +11,7 @@ export default class SymbolTracker extends EventEmitter {
   #buy: number = 0
   #sell: number = 0
 
-  constructor(private readonly log: Logger, private readonly symbol: string) {
+  constructor(private readonly log: Logger, private readonly symbol: string, private readonly closeCode: number) {
     super()
     this.log.i(logSystem, `Start ${logSystem} for ${symbol} symbol`)
     this.#name = `Symbol ${this.symbol}`
@@ -51,15 +51,15 @@ export default class SymbolTracker extends EventEmitter {
   }
 
   stop = (): void => {
-    this.log.i(logSystem, `${this.#name} close connection`)
-    this.#socket.close(999)
+    this.log.d(logSystem, `${this.#name} stop`)
+    this.#socket.close(this.closeCode, 'stop')
   }
 
   // Socket data handler
   #setupSocket = (): void => {
     // Connection opened event
     this.#socket.on('open', () => {
-      this.log.i(logSystem, `${this.#name} open connection`)
+      this.log.d(logSystem, `${this.#name} open connection`)
     })
     // Message received event
     this.#socket.on('message', (data: any) => {
@@ -75,12 +75,8 @@ export default class SymbolTracker extends EventEmitter {
       }
     })
     // Connection closed event
-    // this.#socket.on('close', (withErr: boolean) => {
-    //   this.log.w(logSystem, `${this.#name} close connection${withErr ? ' with error' : ''}`)
-    //   this.emit('close')
-    // })
-    this.#socket.on('close', ({ code }: { code: number }) => {
-      this.log.w(logSystem, `${this.#name} close connection (code:${code})`)
+    this.#socket.on('close', (code: number) => {
+      this.log.d(logSystem, `${this.#name} close connection (code:${code})`)
       this.emit('close', code)
     })
     // Error event

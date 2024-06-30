@@ -1,6 +1,6 @@
 import Logger from '../logger'
 import PgSql from './pg_sql.js'
-import { CfgSql, OrderSide, OrderStatus, SqlAccount, SqlOrder, SqlOrderCreate, SqlOrderUpdate } from '../datatypes'
+import { CfgSql, OrderSide, OrderStatus, SqlOrder, SqlOrderCreate, SqlOrderUpdate } from '../datatypes'
 
 const logSystem: string = 'controller'
 const cols: (keyof SqlOrderCreate)[] = [
@@ -37,23 +37,11 @@ export default class DataControl {
     this.#join += `LEFT JOIN core_coin ccc on cp.coin_quote_id = ccc.id`
   }
 
-  accGet = async (botID: number): Promise<SqlAccount | undefined> => {
-    this.log.d(logSystem, `Try to get account for bot id: ${botID}`)
-    if (!botID) return
-    let query: string = 'SELECT ta.api_key, ta.api_secret FROM subscribers_tradeaccount ta '
-    query += 'LEFT JOIN subscribers_bot sb ON sb.account_id = ta.id '
-    query += `WHERE sb.id = ${botID};`
-    const found = await this.#sql.makeQuery(query)
-    if (found && found.length === 1) return found[0]
-    this.log.e(logSystem, `Failed to get account for bot id: '${botID}'`)
-    return
-  }
-
   ordersGet = async (onlyFake: boolean): Promise<SqlOrder[]> => {
     this.log.d(logSystem, `Try to get ${onlyFake ? 'fake' : 'all'} orders`)
     const condition: string = onlyFake ? ` AND ${this.#SHORT}.order_id = 0` : ''
     const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}'${condition}`
-    const query: string = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
+    const query: string = `SELECT ${this.#values}, ${this.#other} FROM ${this.#from} ${this.#join} WHERE ${where};`
     const orders = await this.#sql.makeQuery(query)
     return orders.map((order) => this.#orderSerialize(order))
   }
@@ -61,7 +49,7 @@ export default class DataControl {
   ordersBotGet = async (botID: number): Promise<SqlOrder[]> => {
     this.log.d(logSystem, `Try to get bot id:${botID} orders`)
     const where: string = `${this.#SHORT}.bot_id = ${botID}`
-    const query: string = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
+    const query: string = `SELECT ${this.#values}, ${this.#other} FROM ${this.#from} ${this.#join} WHERE ${where};`
     const orders = await this.#sql.makeQuery(query)
     return orders.map((order) => this.#orderSerialize(order))
   }
@@ -69,7 +57,7 @@ export default class DataControl {
   orderGet = async (orderID: number): Promise<SqlOrder | undefined> => {
     if (!orderID) throw new Error('order id not set to get it')
     this.log.d(logSystem, `Try to get order id:${orderID}`)
-    let query: string = `SELECT ${this.#values} ${this.#other} FROM ${this.#from} `
+    let query: string = `SELECT ${this.#values}, ${this.#other} FROM ${this.#from} `
     query += `${this.#join} WHERE ${this.#SHORT}.id = ${orderID};`
     const found = await this.#sql.makeQuery(query)
     if (found && found.length === 1) return this.#orderSerialize(found[0])
@@ -79,8 +67,9 @@ export default class DataControl {
 
   orderCreate = async (order: SqlOrderCreate): Promise<SqlOrder> => {
     this.log.d(logSystem, `Bot id:${order.bot_id} try to create ${order.side} order price:${order.price}`)
-    const values = cols.map((col: keyof SqlOrderCreate) => `${order[col]}`).join(', ')
-    const query = `INSERT INTO ${this.#from} (${cols.join(', ')}) VALUES (${values}) RETURNING ${this.#values};`
+    const values = cols.map((col: keyof SqlOrderCreate) => `'${order[col]}'`).join(', ')
+    const fields = cols.join(', ')
+    const query = `INSERT INTO ${this.#TABLE} (${fields}) VALUES (${values}) RETURNING id, ${fields};`
     const orderCreated = await this.#sql.makeQuery(query)
     if (orderCreated && orderCreated[0].id) return this.#orderSerialize(orderCreated[0])
     this.log.e(logSystem, `Failed to create order '${order}'`)

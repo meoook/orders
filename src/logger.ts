@@ -64,8 +64,8 @@ export default class Logger {
     if (!fs.existsSync(folder)) {
       try {
         fs.mkdirSync(folder)
-      } catch (e) {
-        throw e
+      } catch (err) {
+        throw err  // TODO: not handled - no need
       }
     }
   }

@@ -26,10 +26,9 @@ class BnApiException extends Error {
 
     try {
       this.code = ApiErrorCode[response.data.code as keyof typeof ApiErrorCode]
-      this.message = response.data.msg
-    } catch (e) {
-      if (e instanceof SyntaxError) this.message = `Invalid JSON error message ${response.data}`
-      else this.message = JSON.stringify(response.data)
+      this.message = response.data.message
+    } catch (err) {
+      this.message = response.data ? JSON.stringify(response.data) : `Unhandled error ${err}`
     }
   }
 
@@ -186,10 +185,14 @@ class BnBaseApi {
   }
 
   #compareTime = async (): Promise<void> => {
-    const serverTime = await this.#serverTime()
-    const timeDelta = serverTime - Math.floor(Date.now() + this.#timestampOffset)
-    if (this.#debug) this.log.i(logSystem, `Set time offset with API server: ${timeDelta}`)
-    this.#timestampOffset = timeDelta
+    try {
+      const serverTime = await this.#serverTime()
+      const timeDelta = serverTime - Math.floor(Date.now() + this.#timestampOffset)
+      if (this.#debug) this.log.i(logSystem, `Set time offset with API server: ${timeDelta}`)
+      this.#timestampOffset = timeDelta
+    } catch (err) {
+      this.log.e(logSystem, `Failed to compare time - ${err}`)
+    }
   }
 
   #serverTime = async (): Promise<number> => {

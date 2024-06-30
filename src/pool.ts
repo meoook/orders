@@ -28,34 +28,6 @@ export default class Pool {
     await this.#ordersCheck()
   }
 
-  #setupMonitor = (): void => {
-    this.log.d(logSystem, 'Setup monitor')
-    this.#monitor.on('order', async (orderID: number) => {
-      /// TODO: check expire
-      this.log.i(logSystem, `Order id:${orderID} price triggered`)
-      const order: SqlOrder | undefined = await this.#sql.orderGet(orderID)
-      if (!order) {
-        this.log.c(logSystem, `Order id:${orderID} triggered but not found in DB`)
-      } else if (this.#orderIsExpired(order)) {
-        await this.#orderDelete(order)
-      } else if (order.status !== OrderStatus.NEW) {
-        this.log.c(logSystem, `Order id:${orderID} triggered but with ${order.status} status`)
-        this.#monitor.ordersCancel(order.bot_id, order.symbol, [order.id])
-      } else {
-        const apiOrderID = await this.#bn.orderCreate(order)
-        this.log.i(logSystem, `Order id:${orderID} created in binance with id:${apiOrderID}`)
-        await this.#sql.orderUpdate(orderID, { order_id: apiOrderID })
-      }
-    })
-  }
-
-  #setupOrdersCheck = (timeout: number) => {
-    this.log.i(logSystem, `Setup orders check every ${timeout} seconds`)
-    setInterval(async () => {
-      await this.#ordersCheck()
-    }, timeout * 1000)
-  }
-
   #ordersMonitorAddItems = async (): Promise<void> => {
     // Add sql orders to monitor at start
     const orders: SqlOrder[] = await this.#sql.ordersGet(true)
@@ -71,6 +43,38 @@ export default class Pool {
     this.log.i(logSystem, `Monitor loaded ${amount} of ${orders.length} orders from DB`)
   }
 
+  #setupMonitor = (): void => {
+    this.log.d(logSystem, 'Setup monitor')
+    this.#monitor.on('order', async (orderID: number) => {
+      /// TODO: check expire
+      this.log.i(logSystem, `Order id:${orderID} price triggered`)
+      const order: SqlOrder | undefined = await this.#sql.orderGet(orderID)
+      if (!order) {
+        this.log.c(logSystem, `Order id:${orderID} triggered but not found in DB`)
+      } else if (this.#orderIsExpired(order)) {
+        await this.#orderDelete(order)
+      } else if (order.status !== OrderStatus.NEW) {
+        this.log.c(logSystem, `Order id:${orderID} triggered but with ${order.status} status`)
+        this.#monitor.ordersCancel(order.bot_id, order.symbol, [order.id])
+      } else {
+        try {
+          const apiOrderID = await this.#bn.orderCreate(order)
+          this.log.i(logSystem, `Order id:${orderID} created in binance with id:${apiOrderID}`)
+          await this.#sql.orderUpdate(orderID, { order_id: apiOrderID })
+        } catch (err) {
+          this.log.e(logSystem, `Order id:${orderID} failed to create - ${err}`)
+        }
+      }
+    })
+  }
+
+  #setupOrdersCheck = (timeout: number) => {
+    this.log.i(logSystem, `Setup orders check every ${timeout} seconds`)
+    setInterval(async () => {
+      await this.#ordersCheck()
+    }, timeout * 1000)
+  }
+
   #ordersCheck = async (): Promise<void> => {
     const orders: SqlOrder[] = await this.#sql.ordersGet(false)
     this.log.d(logSystem, `Try to check status for ${orders.length} exchange orders`)
@@ -83,9 +87,8 @@ export default class Pool {
       await this.#orderDelete(order)
       return
     }
-    console.log(order)
     if (order.order_id === 0) return
-    const apiOrder: BnOrder | undefined = await this.#bn.orderGet(order)
+    const apiOrder: BnOrder | undefined = await this.#bn.orderGet(order) // TODO: no credentials
     if (!apiOrder) {
       this.log.c(logSystem, `Failed to get order ${order.order_id} by API`)
       await this.#orderDelete(order)
@@ -108,7 +111,8 @@ export default class Pool {
     if (order.order_id > 0) {
       this.log.d(logSystem, `Order id:${order.id} try to delete (exchange)`)
       const apiOrder = await this.#bn.orderDelete(order)
-      if (apiOrder && [OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED].includes(apiOrder.status)) {
+      if (!apiOrder) return
+      if ([OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED].includes(apiOrder.status)) {
         await this.#sql.orderUpdate(order.id, { status: OrderStatus.FILLED })
         return
       }
@@ -126,8 +130,8 @@ export default class Pool {
     return true
   }
 
+  /// Cancel bor orders
   ordersCancel = async (botID: number): Promise<number> => {
-    /// Cancel bor orders
     const orders = await this.#sql.ordersBotGet(botID)
     orders.forEach(async (order) => {
       await this.#orderDelete(order)
@@ -135,20 +139,22 @@ export default class Pool {
     return orders.length
   }
 
+  /// Get bot orders
   ordersGet = async (botID: number): Promise<SqlOrder[]> => {
-    /// Get bot orders
-    return await this.#sql.ordersBotGet(botID)
+    const orders = await this.#sql.ordersBotGet(botID)
+    // TODO: orders.filter((o) => o.order_id !== 0)
+    return orders.map(({ api_key, api_secret, qty_step, base, quote, ...rest }) => rest)
   }
 
+  /// Get order by ID
   orderGet = async (orderID: number): Promise<SqlOrder | undefined> => {
-    /// Get order by ID
     return await this.#sql.orderGet(orderID)
   }
 
+  /// Create order by api and save order_id and time
   orderCreate = async (order: SqlOrderCreate): Promise<SqlOrder> => {
-    /// Create order by api and save order_id and time
-    const sqlOrder = await this.#sql.orderCreate(order)
-    this.#monitor.orderAdd(sqlOrder)
-    return sqlOrder
+    const { api_key, api_secret, qty_step, base, quote, ...rest } = await this.#sql.orderCreate(order)
+    this.#monitor.orderAdd(rest)
+    return rest
   }
 }
