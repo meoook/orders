@@ -83,7 +83,7 @@ export default class OrdersMonitor extends EventEmitter {
   }
 
   #symbolSetup(symbol: string): void {
-    this.log.i(logSystem, `Symbol ${symbol} added to track`)
+    this.log.d(logSystem, `Symbol ${symbol} added to track`)
     const tracker = new TrackingSymbol(this.log, symbol, this.cfg.wsCloseCode)
     tracker.on('low', (price: number) => {
       this.#symbolPriceTriger(symbol, price, OrderSide.BUY)
@@ -93,7 +93,7 @@ export default class OrdersMonitor extends EventEmitter {
     })
     tracker.on('close', (code: number) => {
       if (code === this.cfg.wsCloseCode) {
-        this.log.i(logSystem, `Symbol ${symbol} connection closed on stop`)
+        this.log.d(logSystem, `Symbol ${symbol} connection closed on stop`)
       } else {
         this.log.w(logSystem, `Symbol ${symbol} connection closed (code:${code}) - restart`)
         this.#symbolSetup(symbol)

@@ -12,6 +12,8 @@ enum LogLevel {
   MODULE,
 }
 
+// TODO: export default const logger = new Logger() // Logger.getInstance()
+
 export default class Logger {
   readonly #logLevel: LogLevel
   readonly #enableColors: boolean
@@ -65,7 +67,7 @@ export default class Logger {
       try {
         fs.mkdirSync(folder)
       } catch (err) {
-        throw err  // TODO: not handled - no need
+        throw err // TODO: not handled - no need
       }
     }
   }

@@ -1,7 +1,8 @@
 import { ClientConfig, Pool } from 'pg'
 import fs from 'fs'
-import { CfgSql } from '../datatypes'
 import Logger from '../logger'
+import { CfgSql } from '../datatypes'
+
 const logSystem = 'pg'
 
 export default class PgSql {

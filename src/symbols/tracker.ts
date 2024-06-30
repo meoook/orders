@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
-import Logger from '../logger'
 import WebSocket from 'ws'
+import Logger from '../logger'
 
 const logSystem = 'tracker'
 
@@ -15,7 +15,7 @@ export default class SymbolTracker extends EventEmitter {
     super()
     this.log.i(logSystem, `Start ${logSystem} for ${symbol} symbol`)
     this.#name = `Symbol ${this.symbol}`
-    this.#socket = new WebSocket(`wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@ticker`)
+    this.#socket = new WebSocket(`wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@miniTicker`)
     this.#setupSocket()
   }
 

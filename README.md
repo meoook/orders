@@ -1,12 +1,12 @@
 # Orders
 
-**_robot orders microserive_**
+**_robot orders microservice_**
 
 - version: 0.1.0
 - author: [meok][author]
 - build: axios, express, pg, ws
 
-> Using binance API last update: `2024-06-06`
+> Using binance API last update: `2024-06-06` > [Binance rate limits](https://binance-docs.github.io/apidocs/spot/en/#change-log) check update for `2023-08-25`
 
 ## What for
 
@@ -28,6 +28,7 @@ check update for `2023-08-25`
 - [x] Save/Load orders from DB
 - [x] Internal API to CREATE, DELETE orders
 - [x] Logger
+- [ ] Logger as singlton
 - [ ] Keepalife monitor
 
 [author]: https://bazha.ru 'meok home page'

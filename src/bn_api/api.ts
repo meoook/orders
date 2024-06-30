@@ -119,7 +119,7 @@ export default class BnApi {
 
   #serializeOrder = (data: any): BnOrder => {
     return {
-      symbol: data.symbol,
+      symbol: data.symbol.toUpperCase(),
       order_id: data.orderId,
       status: OrderStatus[data.status as keyof typeof OrderStatus],
       side: OrderSide[data.side as keyof typeof OrderSide],
