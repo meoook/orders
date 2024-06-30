@@ -12,7 +12,7 @@ export default class Pool {
   #bn: BnApi
 
   constructor(private readonly log: Logger, private readonly cfg: IConfig) {
-    this.log.d(logSystem, `Start ${logSystem}`)
+    this.log.i(logSystem, `Start ${logSystem}`)
     this.#sql = new DataControl(log, this.cfg.db)
     this.#monitor = new OrdersMonitor(log, this.cfg)
     this.#bn = new BnApi(log, this.cfg)
@@ -23,13 +23,13 @@ export default class Pool {
 
   #start = async (): Promise<void> => {
     this.#setupMonitor()
-    this.#setupExchangeOrdersCheck(this.cfg.timers.expire)
+    this.#setupOrdersCheck(this.cfg.timers.expire)
     await this.#ordersMonitorAddItems()
     await this.#ordersCheck()
   }
 
   #setupMonitor = (): void => {
-    this.log.i(logSystem, 'Setup monitor')
+    this.log.d(logSystem, 'Setup monitor')
     this.#monitor.on('order', async (orderID: number) => {
       /// TODO: check expire
       this.log.i(logSystem, `Order id:${orderID} price triggered`)
@@ -49,9 +49,8 @@ export default class Pool {
     })
   }
 
-  #setupExchangeOrdersCheck = (timeout: number) => {
-    /// Check created in exchange orders every `timeout` seconds
-    this.log.i(logSystem, `Setup exchange orders check every ${timeout} seconds`)
+  #setupOrdersCheck = (timeout: number) => {
+    this.log.i(logSystem, `Setup orders check every ${timeout} seconds`)
     setInterval(async () => {
       await this.#ordersCheck()
     }, timeout * 1000)
@@ -84,6 +83,7 @@ export default class Pool {
       await this.#orderDelete(order)
       return
     }
+    console.log(order)
     if (order.order_id === 0) return
     const apiOrder: BnOrder | undefined = await this.#bn.orderGet(order)
     if (!apiOrder) {

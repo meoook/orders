@@ -10,14 +10,14 @@ export default class ApiServer {
   #pool: Pool
 
   constructor(private readonly log: Logger, private readonly cfg: IConfig) {
-    this.log.d(logSystem, `Start ${logSystem}`)
+    this.log.i(logSystem, `Start ${logSystem} ${this.cfg.api.hostname}:${this.cfg.api.port}`)
     this.#pool = new Pool(this.log, this.cfg)
     this.#app = express()
     this.#app.use(express.json())
 
     this.#apiSetEndppooints()
     this.#app.listen(this.cfg.api.port, () => {
-      this.log.i(logSystem, `Run API Server on ${this.cfg.api.hostname} port ${this.cfg.api.port}`)
+      this.log.d(logSystem, `Run API Server on ${this.cfg.api.hostname} port ${this.cfg.api.port}`)
     })
   }
 

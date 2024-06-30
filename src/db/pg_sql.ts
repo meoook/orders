@@ -19,7 +19,6 @@ export default class PgSql {
   private constructor(private readonly log: Logger, cfg: CfgSql) {
     // const settings = 'postgresql://user:password@host:port/database'
     const settings: ClientConfig = {
-      // max: 20,
       host: cfg.host,
       port: Number(cfg.port),
       user: cfg.user,
@@ -36,10 +35,10 @@ export default class PgSql {
   }
 
   #checkConnection = async (): Promise<void> => {
-    this.log.i(logSystem, 'Checking online status...')
+    this.log.d(logSystem, 'Checking online status...')
     const result = await this.makeQuery('SELECT NOW()')
     this.connected = Boolean(result)
-    if (result) this.log.i(logSystem, `Sql online on '${result[0].now}'`)
+    if (result) this.log.d(logSystem, `Sql online on '${result[0].now}'`)
     else this.log.c(logSystem, 'Check connection fail')
   }
 

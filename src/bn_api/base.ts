@@ -2,7 +2,7 @@ import * as crypto from 'crypto'
 import axios, { AxiosInstance, AxiosResponse } from 'axios'
 import Logger from '../logger'
 
-const logSystem = 'binance'
+const logSystem = 'binance:base'
 
 export enum ApiErrorCode {
   UNKNOWN = 0,
@@ -21,20 +21,15 @@ class BnApiException extends Error {
   public code: ApiErrorCode = 0
   public message: string = ''
 
-  constructor(response: any) {
+  constructor(response: AxiosResponse<Record<string, any>>) {
     super()
 
     try {
-      console.log(`ERROR HERE2`)
-      const jsonResponse = JSON.parse(response.text)
-      console.log('ERROR HERE2')
-      this.code = ApiErrorCode[jsonResponse.code as keyof typeof ApiErrorCode]
-      console.log('ERROR HERE2')
-      this.message = jsonResponse.msg
-      console.log('ERROR HERE2')
+      this.code = ApiErrorCode[response.data.code as keyof typeof ApiErrorCode]
+      this.message = response.data.msg
     } catch (e) {
-      if (e instanceof SyntaxError) this.message = `Invalid JSON error message ${response.text}`
-      else this.message = response
+      if (e instanceof SyntaxError) this.message = `Invalid JSON error message ${response.data}`
+      else this.message = JSON.stringify(response.data)
     }
   }
 
@@ -104,7 +99,6 @@ class BnBaseApi {
         url,
         headers: this.#getHeaders(apiKey),
         params: requestParams,
-        // timeout: this.#TIMEOUT * 1000,
       })
       return this.#handleResponse(response)
     } catch (err) {
@@ -117,10 +111,9 @@ class BnBaseApi {
     }
   }
 
-  #handleResponse = (response: any): Record<string, any> | any[] => {
-    console.log(response)
-    if (Math.floor(response.statusCode / 100) !== 2) throw new BnApiException(response)
-    return response
+  #handleResponse = (response: AxiosResponse): Record<string, any> | any[] => {
+    if (Math.floor(response.status / 100) !== 2) throw new BnApiException(response)
+    return response.data
   }
 
   #requestApi = async (
@@ -193,12 +186,10 @@ class BnBaseApi {
   }
 
   #compareTime = async (): Promise<void> => {
-    console.log('ERROR HERE')
     const serverTime = await this.#serverTime()
     const timeDelta = serverTime - Math.floor(Date.now() + this.#timestampOffset)
     if (this.#debug) this.log.i(logSystem, `Set time offset with API server: ${timeDelta}`)
     this.#timestampOffset = timeDelta
-    console.log('ERROR HERE')
   }
 
   #serverTime = async (): Promise<number> => {

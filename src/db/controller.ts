@@ -24,12 +24,12 @@ export default class DataControl {
   #join: string
   #other = 'ta.api_key, ta.api_secret, cp.qty_step, cc.usdt_price as base, ccc.usdt_price as quote'
 
-  constructor(private readonly log: Logger, cfgSql: CfgSql) {
-    this.log.d(logSystem, `Start db controller ${cfgSql.host}`)
+  constructor(private readonly log: Logger, cfg: CfgSql) {
+    this.log.i(logSystem, `Start db controller ${cfg.host}:${cfg.port}`)
     const values: string = cols.map((col: string) => `${this.#SHORT}.${col}`).join(', ')
     this.#values = `${this.#SHORT}.id, ${values}`
     this.#from = `${this.#TABLE} ${this.#SHORT}`
-    this.#sql = PgSql.getInstance(this.log, cfgSql)
+    this.#sql = PgSql.getInstance(this.log, cfg)
     this.#join = `LEFT JOIN subscribers_bot sb on ${this.#SHORT}.bot_id = sb.id `
     this.#join += `LEFT JOIN subscribers_tradeaccount ta on sb.account_id = ta.id `
     this.#join += `LEFT JOIN core_pair cp on sb.pair_id = cp.id `
@@ -50,7 +50,7 @@ export default class DataControl {
   }
 
   ordersGet = async (onlyFake: boolean): Promise<SqlOrder[]> => {
-    this.log.d(logSystem, `Try to get ${onlyFake ? 'exchange' : 'fake'} orders`)
+    this.log.d(logSystem, `Try to get ${onlyFake ? 'fake' : 'all'} orders`)
     const condition: string = onlyFake ? ` AND ${this.#SHORT}.order_id = 0` : ''
     const where: string = `${this.#SHORT}.status <> '${OrderStatus.FILLED}'${condition}`
     const query: string = `SELECT ${this.#values} FROM ${this.#from} WHERE ${where};`
@@ -116,21 +116,21 @@ export default class DataControl {
 
   #orderSerialize = (data: any): SqlOrder => {
     return {
-      id: data.id,
-      bot_id: data.bot_id,
+      id: Number(data.id),
+      bot_id: Number(data.bot_id),
       symbol: data.symbol,
-      order_id: data.order_id,
+      order_id: Number(data.order_id),
       status: OrderStatus[data.status as keyof typeof OrderStatus],
       side: OrderSide[data.side as keyof typeof OrderSide],
-      quantity: data.quantity,
-      price: data.price,
-      time: data.time,
-      expire: data.expire,
+      quantity: Number(data.quantity),
+      price: Number(data.price),
+      time: Number(data.time),
+      expire: Number(data.expire),
       api_key: data.api_key ? data.api_key : undefined,
       api_secret: data.api_secret ? data.api_secret : undefined,
-      qty_step: data.qty_step ? data.qty_step : undefined,
-      base: data.base ? data.base : undefined,
-      quote: data.quote ? data.quote : undefined,
+      qty_step: data.qty_step ? Number(data.qty_step) : undefined,
+      base: data.base ? Number(data.base) : undefined,
+      quote: data.quote ? Number(data.quote) : undefined,
     }
   }
 }

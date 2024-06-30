@@ -11,7 +11,6 @@ enum LogLevel {
   DATETIME,
   MODULE,
 }
-type LogLevelString = keyof typeof LogLevel
 
 export default class Logger {
   readonly #logLevel: LogLevel
@@ -21,7 +20,7 @@ export default class Logger {
   #streamData: string = ''
 
   constructor(cfg: CfgLogger) {
-    this.#logLevel = LogLevel[cfg.level.toUpperCase() as LogLevelString] || LogLevel.DEBUG
+    this.#logLevel = LogLevel[cfg.level.toUpperCase() as keyof typeof LogLevel] || LogLevel.DEBUG
     this.#enableColors = cfg.enableColors || false
 
     this.#toFile = cfg.writeToFile || false
@@ -82,7 +81,7 @@ export default class Logger {
   #colorize = (level: LogLevel, text: string): string => {
     switch (level) {
       case LogLevel.DEBUG:
-        return `\x1b[32m${text}\x1b[0m`
+        return `\x1b[30m${text}\x1b[0m`
       case LogLevel.INFO:
         return `\x1b[37m${text}\x1b[0m`
       case LogLevel.WARNING:
@@ -94,9 +93,9 @@ export default class Logger {
       case LogLevel.SUCCESS:
         return `\x1b[1;32m${text}\x1b[0m`
       case LogLevel.MODULE:
-        return `\x1b[1;34m${text}\x1b[0m`
-      case LogLevel.DATETIME:
         return `\x1b[34m${text}\x1b[0m`
+      case LogLevel.DATETIME:
+        return `\x1b[32m${text}\x1b[0m`
       default: // white
         return `\x1b[36m${text}\x1b[0m`
     }

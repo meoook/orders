@@ -19,12 +19,8 @@ export default class OrdersMonitor extends EventEmitter {
 
   constructor(private readonly log: Logger, private readonly cfg: IConfig) {
     super()
-    this.log.d(logSystem, `Start ${logSystem}`)
-    this.#start()
-  }
-
-  #start = () => {
-    this.#symbolsKeepAlife()
+    this.log.i(logSystem, `Start ${logSystem}`)
+    this.#setupKeepAlife()
   }
 
   orderAdd(order: SqlOrder): void {
@@ -60,8 +56,8 @@ export default class OrdersMonitor extends EventEmitter {
     }
   }
 
-  #symbolsKeepAlife(): void {
-    this.log.d(logSystem, `Set keep alife check every ${this.cfg.timers.keepAlife} seconds`)
+  #setupKeepAlife(): void {
+    this.log.i(logSystem, `Setup keep alife check every ${this.cfg.timers.keepAlife} seconds`)
     setInterval(() => {
       this.log.i(logSystem, 'Symbols keep alife check')
       for (let symbol in this.#symbols) {

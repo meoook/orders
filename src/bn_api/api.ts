@@ -10,7 +10,7 @@ export default class BnApi {
 
   constructor(private readonly log: Logger, private readonly cfg: IConfig) {
     this.log.d(logSystem, `Start ${logSystem}`)
-    this.#api = new BnBaseApi(this.log)
+    this.#api = new BnBaseApi(this.log, true)
   }
 
   orderGet = async (order: SqlOrder): Promise<BnOrder | undefined> => {

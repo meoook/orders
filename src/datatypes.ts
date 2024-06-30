@@ -24,7 +24,6 @@ export interface IConfig {
   minOrder: number
   timers: {
     keepAlife: number
-    symbolRemove: number
     expire: number
   }
   logging: CfgLogger
