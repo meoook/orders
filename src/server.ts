@@ -57,8 +57,8 @@ export default class ApiServer {
 
     this.#app.post('/api/orders', async (req: Request, res: Response) => {
       // Create order
-      const { bot_id, symbol, side, quantity, price, timeframe } = req.body
-      if (!bot_id || !symbol || !side || !quantity || !price || !timeframe) {
+      const { bot_id, symbol, side, borrow, quantity, price, timeframe } = req.body
+      if (!bot_id || !symbol || !side || !borrow || !quantity || !price || !timeframe) {
         this.log.w(logSystem, `Wrong parameters to create order - ${req.body}`)
         res.status(400).json({ error: 'wrong parameters to create order' })
       } else {
@@ -69,6 +69,7 @@ export default class ApiServer {
           order_id: 0,
           status: OrderStatus.NEW,
           side,
+          borrow,
           quantity,
           price,
           time: now,

@@ -1,7 +1,7 @@
 import fs from 'fs'
 import Logger from './src/logger'
 import ApiServer from './src/server'
-import { CfgSql, IConfig } from './src/datatypes'
+import { CfgApi, CfgSql, IConfig } from './src/datatypes'
 
 const cfgPath = './config.json'
 
@@ -20,7 +20,12 @@ function readConfig(): IConfig {
     password: process.env.POSTGRES_PASSWORD || config.db.password,
     port: process.env.POSTGRES_PORT || config.db.port,
   }
+  const srvConfig: CfgApi = {
+    hostname: process.env.MONITOR_HOSTNAME || config.api.hostname,
+    port: process.env.MONITOR_PORT || config.api.hostname,
+  }
   config.db = dbConfig
+  config.api = srvConfig
   return config
 }
 

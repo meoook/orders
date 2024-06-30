@@ -69,6 +69,7 @@ export interface SqlOrderCreate extends BnOrder {
   symbol: string
   order_id: number
   status: OrderStatus
+  borrow: boolean
   side: OrderSide
   quantity: number
   price: number

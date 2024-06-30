@@ -53,11 +53,11 @@ export default class BnApi {
   }
 
   orderCreate = async (order: SqlOrder): Promise<number> => {
-    let borrow: boolean = false
+    let borrow: boolean = order.borrow
     let quantity: number = order.quantity
 
     for (let tryN = 0; tryN < this.#TRIES_MAX; tryN++) {
-      const details: string = `${order.side} order quantity=${quantity} price=${order.price}`
+      const details: string = `${order.side} order quantity=${quantity} price=${order.price} borrow=${borrow}`
       try {
         const apiOrder = await this.#orderCreate(order, quantity, borrow)
         return apiOrder.order_id
